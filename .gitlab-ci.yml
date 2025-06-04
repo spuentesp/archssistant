@@ -1,0 +1,35 @@
+stages:
+  - deploy
+
+variables:
+  REMOTE_USER: ccares
+  REMOTE_HOST: 200.13.4.194
+  REMOTE_DIR: /home/ccares/archssistant
+
+deploy_to_server:
+  stage: deploy
+  only:
+    - master  # Rama a desplegar
+
+  before_script:
+    - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
+    - apt-get update -y && apt-get install -y rsync
+    - eval $(ssh-agent -s)
+    - echo "$DEPLOY_KEY_UFRO" | tr -d '\r' | ssh-add -
+    - mkdir -p ~/.ssh
+    - ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
+
+  script:
+    # Crea .env dinámicamente desde ENV_CONTENT
+    - echo "$ENV_CONTENT" > .env
+    - ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST 'echo Conexión SSH exitosa'    
+
+    # Sube archivos, incluyendo .env
+    - rsync -avz --delete ./ $REMOTE_USER@$REMOTE_HOST:$REMOTE_DIR/
+
+    # Mata el server si está corriendo y lo re-inicia
+    - ssh $REMOTE_USER@$REMOTE_HOST '
+        pkill -f "node server.js" || true &&
+        nohup node $REMOTE_DIR/server.js > $REMOTE_DIR/out.log 2>&1 &
+      '
+  
