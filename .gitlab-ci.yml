@@ -9,7 +9,7 @@ variables:
 deploy_to_server:
   stage: deploy
   only:
-    - main  # Rama a desplegar
+    - main  # Rama a desplegar debería ser la propia
 
   before_script:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
