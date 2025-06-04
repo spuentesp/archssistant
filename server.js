@@ -3,7 +3,9 @@ const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
 const dotenv = require('dotenv');
 const fs = require('fs');
+const cors = require('cors');
 
+app.use(cors());
 dotenv.config();
 const app = express();
 const PORT = 3000;
@@ -13,15 +15,17 @@ app.use(bodyParser.json());
 
 const storageFile = 'storage.json';
 
-app.post('/api/ask', async (req, res) => {
+app.post('/archssitant', async (req, res) => {
   const { message } = req.body;
   const apiKey = process.env.GROQ_KEY;
+  const server = process.env.SERVER;
+  const aiserver = process.env.AISERVER;
 
   if (!apiKey) {
     return res.status(500).json({ error: 'Falta la clave de API de Groq' });
   }
 
-  const response = await fetch('https://api.groq.com/openai/v1/chat/completions', {
+  const response = await fetch(AISERVER, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,
@@ -34,7 +38,7 @@ app.post('/api/ask', async (req, res) => {
   });
 
   const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || 'Error en la respuesta de Groq';
+  const reply = data.choices?.[0]?.message?.content || 'Error en respuesta servicio IA';
 
   const history = fs.existsSync(storageFile)
     ? JSON.parse(fs.readFileSync(storageFile))
@@ -46,5 +50,5 @@ app.post('/api/ask', async (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Servidor iniciado en http://localhost:${PORT}`);
+  console.log(`Servidor iniciado en http://${SERVER}:${PORT}`);
 });
