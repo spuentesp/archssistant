@@ -13,7 +13,7 @@
   <script>
     async function askAI() {
       const userInput = document.getElementById('userInput').value;
-      const res = await fetch('/api/ask', {
+      const res = await fetch('/archssistant', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ message: userInput })
