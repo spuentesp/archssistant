@@ -13,7 +13,7 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 const storageFile = 'storage.json';
-const server = process.env.SERVER;
+const SERVER = process.env.SERVER;
 
 app.post('/archssitant', async (req, res) => {
   const { message } = req.body;
