@@ -4,10 +4,10 @@ const fetch = require('node-fetch');
 const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
+dotenv.config();
 
 const app = express();
 const PORT = 5000;
-dotenv.config();
 app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.json());
