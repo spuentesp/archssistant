@@ -13,11 +13,11 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 const storageFile = 'storage.json';
+const server = process.env.SERVER;
 
 app.post('/archssitant', async (req, res) => {
   const { message } = req.body;
   const apiKey = process.env.GROQ_KEY;
-  const server = process.env.SERVER;
   const aiserver = process.env.AISERVER;
 
   if (!apiKey) {
