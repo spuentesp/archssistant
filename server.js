@@ -5,11 +5,10 @@ const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
 
-app.use(cors());
-dotenv.config();
 const app = express();
-const PORT = 3000;
-
+const PORT = 5000;
+dotenv.config();
+app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.json());
 
