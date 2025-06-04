@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>Archssistant</title>
+</head>
+<body>
+  <h1>Pregunta a la IA</h1>
+  <textarea id="userInput" rows="4" cols="50">Dame una diferencia y una similitud entre Victor Hugo y Shakespeare</textarea><br>
+  <button onclick="askAI()">Enviar</button>
+  <pre id="response"></pre>
+
+  <script>
+    async function askAI() {
+      const userInput = document.getElementById('userInput').value;
+      const res = await fetch('/api/ask', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ message: userInput })
+      });
+
+      const data = await res.json();
+      document.getElementById('response').textContent = data.reply;
+    }
+  </script>
+</body>
+</html>
