@@ -13,14 +13,16 @@ app.use(express.static('public'));
 app.use(bodyParser.json());
 
 const storageFile = 'storage.json';
-const SERVER = process.env.SERVER;ç
-console.log(SERVER);
+const SERVER = process.env.SERVER;
+console.log("servidor:"+SERVER);
 
 app.post('/archssitant', async (req, res) => {
-  console.log("Llega /archssistant");
+  
   const { message } = req.body;
   const apiKey = process.env.GROQ_KEY;
   const aiserver = process.env.AISERVER;
+  console.log("Llega /archssistant");
+  console.log("apiKey"+apiKey);
 
   if (!apiKey) {
     return res.status(500).json({ error: 'Falta la clave de API de Groq' });
