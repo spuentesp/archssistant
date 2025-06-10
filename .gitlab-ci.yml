@@ -8,20 +8,23 @@ variables:
 
 deploy_to_server:
   stage: deploy
-  only:
-    - main  # Rama a desplegar debería ser la propia
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "main"'
+      when: always
+    - when: never
 
   before_script:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - apt-get update -y && apt-get install -y rsync
     - eval $(ssh-agent -s)
+    - echo "$DEPLOY_KEY_UFRO" | head -n 1
     - echo "$DEPLOY_KEY_UFRO" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
 
   script:
     # Crea .env dinámicamente desde ENV_CONTENT
-    - echo "$ENV_CONTENT" > .env
+    # - echo "$ENV_CONTENT" > .env
     - ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST 'echo Conexión SSH exitosa'    
 
     # Sube archivos, incluyendo .env
