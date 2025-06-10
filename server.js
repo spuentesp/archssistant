@@ -1,10 +1,10 @@
 const express = require('express');
 const bodyParser = require('body-parser');
 const fetch = require('node-fetch');
-const dotenv = require('dotenv');
+//const dotenv = require('dotenv');
 const fs = require('fs');
 const cors = require('cors');
-dotenv.config();
+//dotenv.config();
 
 const app = express();
 const PORT = 5000;
