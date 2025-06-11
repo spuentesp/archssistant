@@ -1,0 +1,155 @@
+[
+  {
+    "name": "Monolítica",
+    "escalabilidad": 1,
+    "complejidad": 1,
+    "experiencia": 3,
+    "costo": 3,
+    "mantenibilidad": 1,
+    "seguridad": 3
+  },
+  {
+    "name": "Layered",
+    "escalabilidad": 2,
+    "complejidad": 2,
+    "experiencia": 3,
+    "costo": 2,
+    "mantenibilidad": 2,
+    "seguridad": 3
+  },
+  {
+    "name": "Hexagonal",
+    "escalabilidad": 2,
+    "complejidad": 2,
+    "experiencia": 3,
+    "costo": 2,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Microkernel",
+    "escalabilidad": 2,
+    "complejidad": 2,
+    "experiencia": 3,
+    "costo": 2,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Service-Based",
+    "escalabilidad": 3,
+    "complejidad": 2,
+    "experiencia": 3,
+    "costo": 2,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Microservicios",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Serverless",
+    "escalabilidad": 3,
+    "complejidad": 1,
+    "experiencia": 1,
+    "costo": 3,
+    "mantenibilidad": 3,
+    "seguridad": 1
+  },
+  {
+    "name": "Event-Driven",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Space-Based",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 2
+  },
+  {
+    "name": "Data Mesh",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 2
+  },
+  {
+    "name": "SOA",
+    "escalabilidad": 2,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 3
+  },
+  {
+    "name": "Orchestration-Driven SOA",
+    "escalabilidad": 2,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 3
+  },
+  {
+    "name": "CQRS",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 3
+  },
+  {
+    "name": "Event Sourcing",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 3
+  },
+  {
+    "name": "Modular Monolith",
+    "escalabilidad": 2,
+    "complejidad": 2,
+    "experiencia": 3,
+    "costo": 2,
+    "mantenibilidad": 3,
+    "seguridad": 3
+  },
+  {
+    "name": "Microfrontends",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 3,
+    "seguridad": 2
+  },
+  {
+    "name": "MLOps Pipelines",
+    "escalabilidad": 3,
+    "complejidad": 3,
+    "experiencia": 3,
+    "costo": 1,
+    "mantenibilidad": 2,
+    "seguridad": 2
+  }
+]

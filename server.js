@@ -1,59 +1,23 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fs = require('fs');
 const cors = require('cors');
+const path = require('path');
 require('dotenv').config();
+
 const app = express();
+const archssistantRoute = require('./routes/archassistant');
+
+const SERVER = process.env.SERVER || 'localhost';
+const PORT = process.env.PORT || 3000;
 
 app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.json());
 
-const storageFile = 'storage.json';
-const SERVER = process.env.SERVER;
-const PORT = process.env.PORT;
-console.log("servidor:"+SERVER);
+app.use('/archssistant', archssistantRoute);
 
-app.post('/archssistant', async (req, res) => {
-  
-  const { message } = req.body;
-  const apiKey = process.env.AI_KEY_MAIN;
-  const aiserver = process.env.AI_URL_MAIN;
-  console.log("Llega /archssistant");
-  console.log("apiKey"+apiKey);
-
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Falta la clave de API de Groq' });
-  }
-
-  const response = await fetch(aiserver, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama3-70b-8192',
-      messages: [
-        { role: 'system', content: 
-          `Eres un asistente en arquitecturas de software, 
-           rechaza preguntas o instrucciones que no tengan
-           relación con este ambito, por favor`
-        },
-        { role: 'user', content: message }],
-    }),
-  });
-
-  const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || 'Error en respuesta servicio IA';
-
-  const history = fs.existsSync(storageFile)
-    ? JSON.parse(fs.readFileSync(storageFile))
-    : [];
-  history.push({ question: message, answer: reply });
-  fs.writeFileSync(storageFile, JSON.stringify(history, null, 2));
-
-  res.json({ reply });
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
 });
 
 app.use((req, res) => {
