@@ -53,6 +53,10 @@ app.post('/archssitant', async (req, res) => {
   res.json({ reply });
 });
 
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no programada' });
+});
+
 app.listen(PORT, () => {
   console.log(`Servidor iniciado en http://${SERVER}:${PORT}`);
 });
