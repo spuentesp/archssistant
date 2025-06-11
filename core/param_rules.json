@@ -1,0 +1,225 @@
+{
+  "escalabilidad": {
+    "alto": [
+      "muy escalable",
+      "alta escalabilidad",
+      "muchos usuarios",
+      "gran carga",
+      "millones de usuarios",
+      "altas demandas",
+      "tráfico alto",
+      "escalabilidad horizontal",
+      "uso masivo",
+      "uso intensivo",
+      "necesidad de crecimiento rápido",
+      "usuarios simultáneos masivos",
+      "escalamiento automático",
+      "autoescalado",
+      "servicios distribuidos",
+      "demanda impredecible"
+    ],
+    "medio": [
+      "escalable",
+      "media escalabilidad",
+      "usuarios normales",
+      "carga media",
+      "crecimiento controlado",
+      "tráfico estable",
+      "uso moderado",
+      "carga manejable",
+      "escalamiento ocasional",
+      "uso estándar",
+      "infraestructura moderada"
+    ],
+    "bajo": [
+      "poca escalabilidad",
+      "no escalable",
+      "baja escalabilidad",
+      "uso limitado",
+      "pocos usuarios",
+      "tráfico bajo",
+      "uso restringido",
+      "sin necesidad de escalar",
+      "uso interno",
+      "infraestructura fija"
+    ]
+  },
+  "costo": {
+    "bajo": [
+      "barato",
+      "bajo costo",
+      "sin presupuesto",
+      "limitado presupuesto",
+      "optimizar recursos",
+      "coste mínimo",
+      "presupuesto ajustado",
+      "recursos limitados",
+      "infraestructura mínima",
+      "ajuste presupuestario"
+    ],
+    "medio": [
+      "costo medio",
+      "presupuesto medio",
+      "recursos disponibles",
+      "presupuesto razonable",
+      "costo aceptable",
+      "balance costo-beneficio",
+      "gasto moderado",
+      "presupuesto fijo"
+    ],
+    "alto": [
+      "caro",
+      "costoso",
+      "alto costo",
+      "gran presupuesto",
+      "sin restricción de gasto",
+      "presupuesto amplio",
+      "no importa el costo",
+      "sin límite de recursos",
+      "alta inversión",
+      "prioridad sobre calidad"
+    ]
+  },
+  "seguridad": {
+    "alto": [
+      "alta seguridad",
+      "muy seguro",
+      "protegido",
+      "encriptado",
+      "cumplimiento normativo",
+      "compliance",
+      "datos sensibles",
+      "seguridad crítica",
+      "auditoría",
+      "regulaciones bancarias",
+      "resiliente a ataques",
+      "privacidad estricta",
+      "infraestructura segura"
+    ],
+    "medio": [
+      "seguridad media",
+      "seguro a secas",
+      "algún control",
+      "medidas básicas",
+      "nivel aceptable de seguridad",
+      "seguridad aceptable",
+      "controles mínimos",
+      "riesgo controlado"
+    ],
+    "bajo": [
+      "inseguro",
+      "sin seguridad",
+      "riesgoso",
+      "datos expuestos",
+      "vulnerable",
+      "riesgo alto",
+      "sin controles",
+      "sin cifrado",
+      "carencia de protección",
+      "exposición pública"
+    ]
+  },
+  "complejidad": {
+    "alto": [
+      "complejo",
+      "muchas reglas",
+      "dominio complicado",
+      "múltiples dependencias",
+      "lógica de negocio extensa",
+      "casos de uso complejos",
+      "procesos críticos",
+      "flujo de datos complejo",
+      "reglas cambiantes",
+      "integraciones múltiples"
+    ],
+    "medio": [
+      "moderado",
+      "algo complejo",
+      "varias capas",
+      "algunas reglas",
+      "complejidad media",
+      "procesos estándar",
+      "estructura definida",
+      "requisitos estables"
+    ],
+    "bajo": [
+      "sencillo",
+      "pocas reglas",
+      "simple",
+      "lógica simple",
+      "flujo lineal",
+      "mínima complejidad",
+      "bajo nivel de reglas",
+      "caso de uso simple",
+      "una sola función",
+      "pocos módulos"
+    ]
+  },
+  "experiencia": {
+    "alto": [
+      "equipo senior",
+      "experto",
+      "mucha experiencia",
+      "equipo experimentado",
+      "nivel alto de conocimiento",
+      "arquitectos",
+      "devs senior",
+      "personal capacitado",
+      "consultores especializados",
+      "personal con certificaciones"
+    ],
+    "medio": [
+      "experiencia media",
+      "algunos juniors",
+      "mezcla de experiencia",
+      "equipo mixto",
+      "conocimientos intermedios",
+      "intermedios",
+      "mentores disponibles"
+    ],
+    "bajo": [
+      "equipo nuevo",
+      "poca experiencia",
+      "junior",
+      "personal sin experiencia",
+      "aprendices",
+      "equipo en formación",
+      "nivel básico",
+      "falta de capacitación",
+      "requiere formación previa"
+    ]
+  },
+  "mantenibilidad": {
+    "alto": [
+      "fácil de mantener",
+      "alta mantenibilidad",
+      "poco esfuerzo de mantenimiento",
+      "documentado",
+      "modificable fácilmente",
+      "estructura clara",
+      "desacoplado",
+      "modular",
+      "buenas prácticas aplicadas"
+    ],
+    "medio": [
+      "mantenibilidad media",
+      "mantenimiento razonable",
+      "algunas dificultades",
+      "requiere atención ocasional",
+      "estructura mixta",
+      "tareas de mantenimiento manejables"
+    ],
+    "bajo": [
+      "difícil de mantener",
+      "baja mantenibilidad",
+      "mucho mantenimiento",
+      "tecnología obsoleta",
+      "difícil de modificar",
+      "dependencias complejas",
+      "pobre documentación",
+      "sistema frágil",
+      "dificultad para probar",
+      "cambios costosos"
+    ]
+  }
+}

@@ -8,20 +8,25 @@ variables:
 
 deploy_to_server:
   stage: deploy
-  only:
-    - main  # Rama a desplegar debería ser la propia
-
+  environment:
+    name: main   #ponga el nombre de su rama
   before_script:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - apt-get update -y && apt-get install -y rsync
     - eval $(ssh-agent -s)
+    - echo "SERVER=$SERVER"
+    - echo "SERVER=$SERVER" > .env
+    - echo "PORT=$PORT" >> .env
+    - echo "AI_KEY_MAIN=$AI_KEY_MAIN" >> .env
+    - echo "AI_URL_MAIN=$AI_URL_MAIN" >> .env
+    - echo "$DEPLOY_KEY_UFRO" | head -n 1
     - echo "$DEPLOY_KEY_UFRO" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
 
   script:
     # Crea .env dinámicamente desde ENV_CONTENT
-    - echo "$ENV_CONTENT" > .env
+    # - echo "$ENV_CONTENT" > .env
     - ssh -o StrictHostKeyChecking=no $REMOTE_USER@$REMOTE_HOST 'echo Conexión SSH exitosa'    
 
     # Sube archivos, incluyendo .env

@@ -1,53 +1,27 @@
 const express = require('express');
 const bodyParser = require('body-parser');
-const fetch = require('node-fetch');
-const dotenv = require('dotenv');
-const fs = require('fs');
 const cors = require('cors');
-dotenv.config();
+const path = require('path');
+require('dotenv').config();
 
 const app = express();
-const PORT = 5000;
+const archssistantRoute = require('./routes/archassistant');
+
+const SERVER = process.env.SERVER || 'localhost';
+const PORT = process.env.PORT || 3000;
+
 app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.json());
 
-const storageFile = 'storage.json';
-const SERVER = process.env.SERVER;ç
-console.log(SERVER);
+app.use('/archssistant', archssistantRoute);
 
-app.post('/archssitant', async (req, res) => {
-  console.log("Llega /archssistant");
-  const { message } = req.body;
-  const apiKey = process.env.GROQ_KEY;
-  const aiserver = process.env.AISERVER;
+app.get('/', (req, res) => {
+  res.sendFile(path.join(__dirname, 'public/index.html'));
+});
 
-  if (!apiKey) {
-    return res.status(500).json({ error: 'Falta la clave de API de Groq' });
-  }
-
-  const response = await fetch(AISERVER, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama3-70b-8192',
-      messages: [{ role: 'user', content: message }],
-    }),
-  });
-
-  const data = await response.json();
-  const reply = data.choices?.[0]?.message?.content || 'Error en respuesta servicio IA';
-
-  const history = fs.existsSync(storageFile)
-    ? JSON.parse(fs.readFileSync(storageFile))
-    : [];
-  history.push({ question: message, answer: reply });
-  fs.writeFileSync(storageFile, JSON.stringify(history, null, 2));
-
-  res.json({ reply });
+app.use((req, res) => {
+  res.status(404).json({ error: 'Ruta no programada' });
 });
 
 app.listen(PORT, () => {
