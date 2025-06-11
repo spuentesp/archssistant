@@ -19,6 +19,9 @@
         body: JSON.stringify({ message: userInput })
       });
 
+      console.log("res");
+      console.log(res);
+
       const data = await res.json();
       document.getElementById('response').textContent = data.reply;
     }
