@@ -2,29 +2,124 @@
 <html lang="es">
 <head>
   <meta charset="UTF-8">
-  <title>Archssistant</title>
+  <title>Archssistant 386</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+
+  <!-- BOOTSTRA.386 -->
+  <link rel="stylesheet" href="https://kristopolous.github.io/BOOTSTRA.386/lib/bootstrap-3.3.5.min.css">
+  <link rel="stylesheet" href="https://kristopolous.github.io/BOOTSTRA.386/css/bootstrap386.min.css">
+
+  <style>
+    body {
+      background-color: #000080;
+      padding: 40px 10px;
+      color: #00ffff;
+      font-family: monospace;
+    }
+
+    .shell-box {
+      background: #c0c0c0;
+      border: 2px ridge #f0f0f0;
+      padding: 20px;
+      max-width: 700px;
+      margin: 0 auto 20px auto;
+      box-shadow: 0 0 0 3px #808080;
+    }
+
+    textarea {
+      width: 100%;
+      font-family: monospace;
+      font-size: 16px;
+      resize: none;
+      padding: 8px;
+    }
+
+    #response {
+      background-color: #000;
+      color: #00ff00;
+      padding: 20px;
+      border: 2px inset #00ffff;
+      font-family: monospace;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+    }
+
+    .btn-dos {
+      font-size: 16px;
+      background-color: #000;
+      color: #00ffff;
+      border: 2px outset #00ffff;
+      width: 100%;
+      padding: 10px;
+    }
+
+    .btn-dos:hover {
+      background-color: #001080;
+    }
+
+    .title-box {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .loading {
+      text-align: center;
+      color: yellow;
+      font-weight: bold;
+    }
+  </style>
 </head>
-<body>
-  <h1>Pregunta a tu asistente de Arquitectura</h1>
-  <textarea id="userInput" rows="4" cols="50">Dame una diferencia y una similitud entre un Arquitectura Cliente-Servidor y una Arquitectura Web</textarea><br>
-  <button onclick="askAI()">Enviar</button>
-  <pre id="response"></pre>
+<body class="bs386">
+
+  <div class="container">
+    <div class="title-box">
+      <h1><span class="label label-info">ARCHASSIS.386</span></h1>
+      <p>🖥️ Asistente para arquitectura de software</p>
+    </div>
+
+    <div class="shell-box">
+      <label for="userInput">Escribe tu pregunta:</label>
+      <textarea id="userInput" rows="4" placeholder="Ej: ¿Qué arquitectura conviene si quiero bajo acoplamiento y alta escalabilidad?"></textarea>
+      <br><br>
+      <button class="btn btn-dos" onclick="askAI()">▶ Enviar</button>
+    </div>
+
+    <div id="response" class="container">
+      (esperando respuesta...)
+    </div>
+    <div id="loading" class="loading" style="display:none;">
+      🕐 Procesando...
+    </div>
+  </div>
 
   <script>
     async function askAI() {
       const userInput = document.getElementById('userInput').value;
-      const res = await fetch('/archssistant', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ message: userInput })
-      });
+      const responseBox = document.getElementById('response');
+      const loading = document.getElementById('loading');
 
-      console.log("res");
-      console.log(res);
+      responseBox.textContent = '';
+      loading.style.display = 'block';
 
-      const data = await res.json();
-      document.getElementById('response').textContent = data.reply;
+      try {
+        const res = await fetch('/archssistant', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ message: userInput })
+        });
+
+        const data = await res.json();
+        responseBox.textContent = data.reply || '(Sin respuesta)';
+      } catch (error) {
+        responseBox.textContent = '⚠️ Error al contactar al servidor.';
+        console.error(error);
+      } finally {
+        loading.style.display = 'none';
+      }
     }
   </script>
+
 </body>
 </html>

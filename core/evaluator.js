@@ -2,7 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 
-const table = JSON.parse(fs.readFileSync(path.join(__dirname, '..', 'decision_engine.json'), 'utf-8'));
+const table = JSON.parse(fs.readFileSync(path.join(__dirname,  'decision_engine.json'), 'utf-8'));
 
 function mapToScore(value) {
   const val = value?.toLowerCase?.() || '';

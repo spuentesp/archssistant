@@ -42,6 +42,9 @@ Tu respuesta debe tener esta estructura:
 - ➖ Posibles limitaciones o desventajas
 - 📚 Justificación técnica
 - 💬 Conclusión final
+
+
+tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir ejemplos o analogías si son relevantes. Puedes citar otros libros de arquitectura de software siempre y cuando tengas la fuente, pagina, ISBN y autores. debes publicar esa informacion y advertir que viene de fuera de los otros parametros.
 `;
 
   const userPrompt = `¿Por qué "${architecture}" es adecuada para estos parámetros? Si no tienes suficiente respaldo, sugiere una mejor opción.`
