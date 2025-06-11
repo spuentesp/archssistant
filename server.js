@@ -17,7 +17,7 @@ const SERVER = process.env.SERVER;
 const PORT = process.env.PORT;
 console.log("servidor:"+SERVER);
 
-app.post('/archssitant', async (req, res) => {
+app.post('/archssistant', async (req, res) => {
   
   const { message } = req.body;
   const apiKey = process.env.AI_KEY_MAIN;
