@@ -5,22 +5,23 @@ const fetch = require('node-fetch');
 const fs = require('fs');
 const cors = require('cors');
 //dotenv.config();
-
+require('dotenv').config();
 const app = express();
-const PORT = 5000;
+
 app.use(cors());
 app.use(express.static('public'));
 app.use(bodyParser.json());
 
 const storageFile = 'storage.json';
 const SERVER = process.env.SERVER;
+const PORT = process.env.PORT;
 console.log("servidor:"+SERVER);
 
 app.post('/archssitant', async (req, res) => {
   
   const { message } = req.body;
-  const apiKey = process.env.GROQ_KEY;
-  const aiserver = process.env.AISERVER;
+  const apiKey = process.env.AI_KEY_MAIN;
+  const aiserver = process.env.AI_URL_MAIN;
   console.log("Llega /archssistant");
   console.log("apiKey"+apiKey);
 
@@ -28,7 +29,7 @@ app.post('/archssitant', async (req, res) => {
     return res.status(500).json({ error: 'Falta la clave de API de Groq' });
   }
 
-  const response = await fetch(AISERVER, {
+  const response = await fetch(aiserver, {
     method: 'POST',
     headers: {
       'Authorization': `Bearer ${apiKey}`,

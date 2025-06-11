@@ -14,7 +14,10 @@ deploy_to_server:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - apt-get update -y && apt-get install -y rsync
     - eval $(ssh-agent -s)
-    - echo "$SERVER  ${SERVER}  ALGGGO-2?"
+    - echo "SERVER=$SERVER"
+    - echo "SERVER=$SERVER" > .env
+    - echo "AI_KEY_MAIN=$AI_KEY_MAIN" >> .env
+    - echo "AI_URL_MAIN=$AI_URL_MAIN" >> .env
     - echo "$DEPLOY_KEY_UFRO" | head -n 1
     - echo "$DEPLOY_KEY_UFRO" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
