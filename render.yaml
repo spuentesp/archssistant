@@ -1,0 +1,12 @@
+services:
+  - type: web
+    name: archssistant
+    env: node
+    plan: free
+    buildCommand: npm install
+    startCommand: node index.js
+    envVars:
+      - key: AISERVER
+        fromEnvVar: AISERVER
+      - key: GROQ_KEY
+        fromEnvVar: GROQ_KEY
