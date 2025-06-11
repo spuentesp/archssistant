@@ -16,6 +16,7 @@ deploy_to_server:
     - eval $(ssh-agent -s)
     - echo "SERVER=$SERVER"
     - echo "SERVER=$SERVER" > .env
+    - echo "PORT=$PORT" >> .env
     - echo "AI_KEY_MAIN=$AI_KEY_MAIN" >> .env
     - echo "AI_URL_MAIN=$AI_URL_MAIN" >> .env
     - echo "$DEPLOY_KEY_UFRO" | head -n 1
