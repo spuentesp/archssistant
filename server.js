@@ -34,7 +34,13 @@ app.post('/archssistant', async (req, res) => {
     },
     body: JSON.stringify({
       model: 'llama3-70b-8192',
-      messages: [{ role: 'user', content: message }],
+      messages: [
+        { role: 'system', content: 
+          `Eres un asistente en arquitecturas de software, 
+           rechaza preguntas o instrucciones que no tengan
+           relación con este ambito, por favor`
+        }
+        { role: 'user', content: message }],
     }),
   });
 
