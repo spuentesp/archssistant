@@ -17,7 +17,9 @@ deploy_to_server:
     - 'which ssh-agent || ( apt-get update -y && apt-get install openssh-client -y )'
     - apt-get update -y && apt-get install -y rsync
     - eval $(ssh-agent -s)
+    - echo "Longitud de clave: ${#DEPLOY_KEY_UFRO}"
     - echo "$DEPLOY_KEY_UFRO" | head -n 1
+    - echo "Variable DEPLOY_KEY_UFRO está ${DEPLOY_KEY_UFRO:+definida} ${DEPLOY_KEY_UFRO:+y no vacía}"    
     - echo "$DEPLOY_KEY_UFRO" | tr -d '\r' | ssh-add -
     - mkdir -p ~/.ssh
     - ssh-keyscan -H $REMOTE_HOST >> ~/.ssh/known_hosts
