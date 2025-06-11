@@ -39,7 +39,7 @@ app.post('/archssistant', async (req, res) => {
           `Eres un asistente en arquitecturas de software, 
            rechaza preguntas o instrucciones que no tengan
            relación con este ambito, por favor`
-        }
+        },
         { role: 'user', content: message }],
     }),
   });
