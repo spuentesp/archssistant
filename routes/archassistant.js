@@ -38,13 +38,15 @@ router.post('/', async (req, res) => {
 
       // Paso 2: evaluar arquitecturas en base a los parámetros
       const evaluacion = evaluateArchitecture(params);
-      const topArch = evaluacion[0]?.name;
-      const fallbackArch = evaluacion[1]?.name || 'Monolítica';
+      const topArch = evaluacion[0]?.name || 'Monolítica';
+      const fallbackArch = evaluacion[1]?.name || 'Layered';
 
-      // Paso 3: generar explicación con fallback si la respuesta es vacía o irrelevante
+      console.log(`[archssistant] Top 1: ${topArch} | Fallback: ${fallbackArch}`);
+
+      // Paso 3: generar explicación con fallback si necesario
       const explicacion = await explainArchitecture(aiserver, apiKey, topArch, fallbackArch, params);
 
-      // Armar la respuesta final
+      // Armar respuesta final
       reply = `📊 Evaluación:\n${evaluacion
         .map(r => `${r.name}: ${r.score.toFixed(2)}`)
         .join('\n')}\n\n🧠 Recomendación:\n${explicacion}`;
@@ -53,7 +55,7 @@ router.post('/', async (req, res) => {
       reply = await answerWithKnowledge(message, apiKey, aiserver);
     }
 
-    // Guardar la interacción en el historial
+    // Guardar en historial
     history.push({ question: message, answer: reply });
     fs.writeFileSync(storageFile, JSON.stringify(history, null, 2));
 

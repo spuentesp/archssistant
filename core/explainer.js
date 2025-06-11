@@ -1,5 +1,15 @@
 const fetch = require('node-fetch');
 
+/**
+ * Explica por qué una arquitectura es adecuada usando fuentes autorizadas.
+ * Si la explicación es insuficiente, intenta con una arquitectura secundaria (fallback).
+ * @param {string} aiserver - URL del servidor LLM.
+ * @param {string} apiKey - Clave API.
+ * @param {string} architecture - Arquitectura recomendada principal.
+ * @param {string} fallbackArch - Segunda mejor opción.
+ * @param {object} params - Parámetros técnicos detectados.
+ * @returns {Promise<string>} - Explicación en español, estructurada.
+ */
 async function explainArchitecture(aiserver, apiKey, architecture, fallbackArch, params) {
   const paramSummary = JSON.stringify(params, null, 2);
 
@@ -55,12 +65,11 @@ Tu respuesta debe tener esta estructura:
     const data = await response.json();
     const content = data.choices?.[0]?.message?.content?.trim();
 
-    if (content && content.length > 100) {
+    if (content && content.length > 100 && !/no (hay|tengo) (suficiente|información)/i.test(content)) {
       console.log(`[explainer] Explicación recibida (main): ${content.slice(0, 100)}...`);
       return content;
     }
 
-    // Fallback con arquitectura secundaria
     console.warn('[explainer] Primera arquitectura no fue útil. Intentando fallback...');
     return await explainFallback(aiserver, apiKey, fallbackArch, params);
 
@@ -71,10 +80,14 @@ Tu respuesta debe tener esta estructura:
 }
 
 async function explainFallback(aiserver, apiKey, fallbackArch, params) {
-  const systemPrompt = `
-Eres un experto en arquitectura de software. Siempre responde en español y usa únicamente los libros indicados. Tu tarea es recomendar una arquitectura adecuada para los siguientes parámetros:
+  const paramSummary = JSON.stringify(params, null, 2);
 
-${JSON.stringify(params, null, 2)}
+  const systemPrompt = `
+Eres un experto en arquitectura de software. Siempre responde en español y usa únicamente los libros indicados.
+
+Tu tarea es recomendar una arquitectura adecuada para los siguientes parámetros:
+
+${paramSummary}
 
 Justifica por qué "${fallbackArch}" podría ser una opción más apropiada si la primera no fue válida. Apóyate en principios generales como acoplamiento, escalabilidad, simplicidad, separación de preocupaciones, etc.
 
