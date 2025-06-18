@@ -1,4 +1,3 @@
-
 // ===== 3. core/hybridExtractor.js =====
 
 const { detectarParametros } = require('./param_analyzer');
@@ -19,12 +18,12 @@ function promedio(paramA, paramB) {
   return 'alto';
 }
 
-async function extractHybridParams(message, apiKey, aiserver) {
+async function extractHybridParams(message, apiKey) {
   const localParams = detectarParametros(message);
   let llmParams = {};
 
   try {
-    llmParams = await extractParams(message, apiKey, aiserver);
+    llmParams = await extractParams(message, apiKey);
   } catch (e) {
     console.warn('[hybridExtractor] Error LLM, usando solo local', e.message);
   }

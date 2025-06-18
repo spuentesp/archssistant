@@ -13,9 +13,8 @@ const storageFile = path.join(__dirname, '..', 'storage.json');
 router.post('/', async (req, res) => {
   const { message } = req.body;
   const apiKey = process.env.GROQ_KEY;
-  const aiserver = process.env.AISERVER;
 
-  if (!apiKey || !aiserver) {
+  if (!apiKey) {
     return res.status(500).json({ error: 'Faltan configuraciones de API' });
   }
 
@@ -28,7 +27,7 @@ router.post('/', async (req, res) => {
       : [];
 
     // Paso 1: extraer parámetros desde el mensaje
-    const params = await extractHybridParams(message, apiKey, aiserver);
+    const params = await extractHybridParams(message, apiKey);
     const validKeys = Object.keys(params).filter(k => params[k] !== 'desconocido');
 
     let reply;
@@ -44,7 +43,7 @@ router.post('/', async (req, res) => {
       console.log(`[archssistant] Top 1: ${topArch} | Fallback: ${fallbackArch}`);
 
       // Paso 3: generar explicación con fallback si necesario
-      const explicacion = await explainArchitecture(aiserver, apiKey, topArch, fallbackArch, params);
+      const explicacion = await explainArchitecture(apiKey, topArch, fallbackArch, params);
 
       // Armar respuesta final
       reply = `📊 Evaluación:\n${evaluacion
@@ -52,7 +51,7 @@ router.post('/', async (req, res) => {
         .join('\n')}\n\n🧠 Recomendación:\n${explicacion}`;
     } else {
       console.log('[archssistant] No se detectaron parámetros. Consultando módulo de conocimiento...');
-      reply = await answerWithKnowledge(message, apiKey, aiserver);
+      reply = await answerWithKnowledge(message, apiKey);
     }
 
     // Guardar en historial

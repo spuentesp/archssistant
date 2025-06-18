@@ -1,16 +1,15 @@
-const fetch = require('node-fetch');
+const Groq = require('groq-sdk');
 
 /**
  * Explica por qué una arquitectura es adecuada usando fuentes autorizadas.
  * Si la explicación es insuficiente, intenta con una arquitectura secundaria (fallback).
- * @param {string} aiserver - URL del servidor LLM.
  * @param {string} apiKey - Clave API.
  * @param {string} architecture - Arquitectura recomendada principal.
  * @param {string} fallbackArch - Segunda mejor opción.
  * @param {object} params - Parámetros técnicos detectados.
  * @returns {Promise<string>} - Explicación en español, estructurada.
  */
-async function explainArchitecture(aiserver, apiKey, architecture, fallbackArch, params) {
+async function explainArchitecture(apiKey, architecture, fallbackArch, params) {
   const paramSummary = JSON.stringify(params, null, 2);
 
   const systemPrompt = `
@@ -50,23 +49,15 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
   const userPrompt = `¿Por qué "${architecture}" es adecuada para estos parámetros? Si no tienes suficiente respaldo, sugiere una mejor opción.`
 
   try {
-    const response = await fetch(aiserver, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama3-70b-8192',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
-      }),
+    const client = new Groq({ apiKey });
+    const completion = await client.chat.completions.create({
+      model: 'llama3-70b-8192',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
     });
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const content = completion.choices?.[0]?.message?.content?.trim();
 
     if (content && content.length > 100 && !/no (hay|tengo) (suficiente|información)/i.test(content)) {
       console.log(`[explainer] Explicación recibida (main): ${content.slice(0, 100)}...`);
@@ -74,7 +65,7 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
     }
 
     console.warn('[explainer] Primera arquitectura no fue útil. Intentando fallback...');
-    return await explainFallback(aiserver, apiKey, fallbackArch, params);
+    return await explainFallback(apiKey, fallbackArch, params);
 
   } catch (error) {
     console.error('[explainer] Error al solicitar explicación:', error);
@@ -82,7 +73,7 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
   }
 }
 
-async function explainFallback(aiserver, apiKey, fallbackArch, params) {
+async function explainFallback(apiKey, fallbackArch, params) {
   const paramSummary = JSON.stringify(params, null, 2);
 
   const systemPrompt = `
@@ -103,23 +94,15 @@ Usa solo:
   const userPrompt = `Justifica el uso de la arquitectura "${fallbackArch}" en lugar de otra que no tuvo suficiente respaldo.`
 
   try {
-    const response = await fetch(aiserver, {
-      method: 'POST',
-      headers: {
-        'Authorization': `Bearer ${apiKey}`,
-        'Content-Type': 'application/json',
-      },
-      body: JSON.stringify({
-        model: 'llama3-70b-8192',
-        messages: [
-          { role: 'system', content: systemPrompt },
-          { role: 'user', content: userPrompt }
-        ]
-      }),
+    const client = new Groq({ apiKey });
+    const completion = await client.chat.completions.create({
+      model: 'llama3-70b-8192',
+      messages: [
+        { role: 'system', content: systemPrompt },
+        { role: 'user', content: userPrompt }
+      ]
     });
-
-    const data = await response.json();
-    const content = data.choices?.[0]?.message?.content?.trim();
+    const content = completion.choices?.[0]?.message?.content?.trim();
 
     if (content && content.length > 100) {
       console.log(`[explainer] Explicación recibida (fallback): ${content.slice(0, 100)}...`);
