@@ -51,7 +51,7 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
   try {
     const client = new Groq({ apiKey });
     const completion = await client.chat.completions.create({
-      model: 'llama3-70b-8192',
+      model: 'meta-llama/llama-guard-4-12b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }

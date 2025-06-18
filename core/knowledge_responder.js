@@ -19,7 +19,7 @@ Tu respuesta debe estar en español. Si no puedes justificar tu respuesta basán
 async function answerWithKnowledge(message, apiKey) {
   const client = new Groq({ apiKey });
   const completion = await client.chat.completions.create({
-    model: 'llama3-70b-8192',
+    model: 'meta-llama/llama-guard-4-12b',
     messages: [
       { role: 'system', content: librosFuente },
       { role: 'user', content: message }

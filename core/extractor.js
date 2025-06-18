@@ -20,7 +20,7 @@ Do not include any explanation or extra text. Only output the JSON object.
 
   const client = new Groq({ apiKey });
   const completion = await client.chat.completions.create({
-    model: 'llama3-70b-8192',
+    model: 'meta-llama/llama-guard-4-12b',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
