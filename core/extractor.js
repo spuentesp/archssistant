@@ -38,9 +38,12 @@ Do not include any explanation or extra text. Only output the JSON object.
   const content = data.choices?.[0]?.message?.content.trim();
   try {
     const parsed = JSON.parse(content);
+    console.log('Parsed JSON:', parsed);
     return parsed;
   } catch (e) {
+    console.error('Error parsing JSON:', e);
     throw new Error('LLM response was not JSON parseable', { cause: e });
+    
   }
 }
 
