@@ -34,6 +34,7 @@ Do not include any explanation or extra text. Only output the JSON object.
   });
 
   const data = await response.json();
+  console.log('LLM response:', data);
   const content = data.choices?.[0]?.message?.content.trim();
   try {
     const parsed = JSON.parse(content);
