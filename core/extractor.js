@@ -1,10 +1,19 @@
-
 async function extractParams(message, apiKey, aiserver) {
   const systemPrompt = `
-Eres un extractor semántico de requerimientos de arquitectura de software.
-Extrae los siguientes parámetros: escalabilidad, complejidad, experiencia, costo, mantenibilidad, seguridad.
-Responde únicamente con un JSON válido con valores: bajo, medio, alto.
-Si no puedes inferir un valor, pon "desconocido".
+You are a semantic extractor for software architecture requirements.
+Extract the following parameters: scalability, complexity, experience, cost, maintainability, security.
+Respond ONLY with a valid JSON object, with each key being one of the parameters above and each value being one of: "low", "medium", "high".
+If you cannot infer a value for a parameter, set its value to "unknown".
+The response MUST be a single line, valid JSON object, with all six keys present. Example:
+{
+  "scalability": "medium",
+  "complexity": "high",
+  "experience": "unknown",
+  "cost": "low",
+  "maintainability": "medium",
+  "security": "high"
+}
+Do not include any explanation or extra text. Only output the JSON object.
 `;
 
   const body = {
@@ -30,7 +39,7 @@ Si no puedes inferir un valor, pon "desconocido".
     const parsed = JSON.parse(content);
     return parsed;
   } catch (e) {
-    throw new Error('Respuesta LLM no fue JSON parseable', { cause: e });
+    throw new Error('LLM response was not JSON parseable', { cause: e });
   }
 }
 
