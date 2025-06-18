@@ -5,7 +5,6 @@ const { detectarParametros } = require('./param_analyzer');
 const { extractParams } = require('./extractor');
 
 const escala = { bajo: 1, medio: 2, alto: 3 };
-const inversa = { 1: 'bajo', 2: 'medio', 3: 'alto' };
 
 function promedio(paramA, paramB) {
   const a = escala[paramA] || 0;
