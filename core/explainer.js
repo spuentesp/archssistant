@@ -9,7 +9,7 @@ const Groq = require('groq-sdk');
  * @param {object} params - Parámetros técnicos detectados.
  * @returns {Promise<string>} - Explicación en español, estructurada.
  */
-async function explainArchitecture(apiKey, architecture, fallbackArch, params) {
+async function explainArchitecture(architecture, fallbackArch, params) {
   const paramSummary = JSON.stringify(params, null, 2);
 
   const systemPrompt = `
@@ -49,13 +49,14 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
   const userPrompt = `¿Por qué "${architecture}" es adecuada para estos parámetros? Si no tienes suficiente respaldo, sugiere una mejor opción.`
 
   try {
-    const client = new Groq({ apiKey });
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await client.chat.completions.create({
       model: 'meta-llama/llama-guard-4-12b',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ]
+      ],
+      response_format: { type: 'json_object' }
     });
     const content = completion.choices?.[0]?.message?.content?.trim();
 
@@ -94,13 +95,14 @@ Usa solo:
   const userPrompt = `Justifica el uso de la arquitectura "${fallbackArch}" en lugar de otra que no tuvo suficiente respaldo.`
 
   try {
-    const client = new Groq({ apiKey });
+    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
     const completion = await client.chat.completions.create({
-      model: 'llama3-70b-8192',
+      model: 'llama-3.1-8b-instant',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
-      ]
+      ],
+      response_format: { type: 'json_object' }
     });
     const content = completion.choices?.[0]?.message?.content?.trim();
 

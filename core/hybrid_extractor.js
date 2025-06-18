@@ -18,12 +18,12 @@ function promedio(paramA, paramB) {
   return 'alto';
 }
 
-async function extractHybridParams(message, apiKey) {
+async function extractHybridParams(message) {
   const localParams = detectarParametros(message);
   let llmParams = {};
 
   try {
-    llmParams = await extractParams(message, apiKey);
+    llmParams = await extractParams(message);
   } catch (e) {
     console.warn('[hybridExtractor] Error LLM, usando solo local', e.message);
   }

@@ -15,24 +15,26 @@ The response MUST be a single line, valid JSON object, with all six keys present
   "maintainability": "medium",
   "security": "high"
 }
-Do not include any explanation or extra text. Only output the JSON object.
+Do not include any explanation or extra text. Only output the JSON object. if there is now information about a parameter, omit it.
 `;
 
-  const client = new Groq({ apiKey });
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const completion = await client.chat.completions.create({
-    model: 'meta-llama/llama-guard-4-12b',
+    model: 'llama-3.1-8b-instant',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
-    ]
+    ],
+    response_format: { type: 'json_object' }
   });
 
   const content = completion.choices?.[0]?.message?.content.trim();
+  console.log(`[extractor] LLM response: ${content}`);
   try {
     const parsed = JSON.parse(content);
     return parsed;
   } catch (e) {
-    console.error('Error parsing LLM response:', content);
+    console.error('Error parsing LLM response:', e);
     throw new Error('Invalid JSON from LLM');
   }
 }

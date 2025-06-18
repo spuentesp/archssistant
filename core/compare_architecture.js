@@ -11,13 +11,14 @@ Utiliza exclusivamente los siguientes libros como base:
 
 La respuesta debe ser objetiva, precisa y en español. Si no tienes suficiente información, dilo directamente.`;
 
-  const client = new Groq({ apiKey });
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
   const completion = await client.chat.completions.create({
-    model: 'meta-llama/llama-guard-4-12b',
+    model: 'llama-3.1-8b-instant',
     messages: [
       { role: 'system', content: prompt },
       { role: 'user', content: `Compara ${arch1} y ${arch2}.` }
-    ]
+    ],
+    response_format: { type: 'json_object' }
   });
 
   return completion.choices?.[0]?.message?.content || 'Sin información disponible.';
