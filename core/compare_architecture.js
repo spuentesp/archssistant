@@ -1,6 +1,6 @@
-const fetch = require('node-fetch');
+const Groq = require('groq-sdk');
 
-async function compareArchitectures(arch1, arch2, apiKey, aiserver) {
+async function compareArchitectures(arch1, arch2, apiKey) {
   const prompt = `
 Eres un asistente experto en arquitectura de software. Compara las arquitecturas "${arch1}" y "${arch2}" en base a escalabilidad, costo, mantenibilidad, y complejidad.
 
@@ -11,23 +11,17 @@ Utiliza exclusivamente los siguientes libros como base:
 
 La respuesta debe ser objetiva, precisa y en español. Si no tienes suficiente información, dilo directamente.`;
 
-  const response = await fetch(aiserver, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json'
-    },
-    body: JSON.stringify({
-      model: 'llama3-70b-8192',
-      messages: [
-        { role: 'system', content: prompt },
-        { role: 'user', content: `Compara ${arch1} y ${arch2}.` }
-      ]
-    })
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const completion = await client.chat.completions.create({
+    model: 'llama-3.1-8b-instant',
+    messages: [
+      { role: 'system', content: prompt },
+      { role: 'user', content: `Compara ${arch1} y ${arch2}.` }
+    ],
+    response_format: { type: 'json_object' }
   });
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || 'Sin información disponible.';
+  return completion.choices?.[0]?.message?.content || 'Sin información disponible.';
 }
 
 module.exports = { compareArchitectures };

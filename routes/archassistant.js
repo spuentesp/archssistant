@@ -13,6 +13,7 @@ router.post('/', async (req, res) => {
   const aiserver = process.env.AISERVER;
 
   if (!apiKey || !aiserver) {
+    console.error('[archssistant] Error: Faltan configuraciones de API (GROQ_KEY o AISERVER)');
     return res.status(500).json({ error: 'Faltan configuraciones de API' });
   }
 

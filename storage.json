@@ -118,5 +118,29 @@
   {
     "question": "hablame de la arquitectura data mesh",
     "answer": "📊 Evaluación:\nMicroservicios: 2.67\nEvent-Driven: 2.67\nService-Based: 2.67\nMicrofrontends: 2.50\nHexagonal: 2.50\nMicrokernel: 2.50\nCQRS: 2.50\nEvent Sourcing: 2.50\nModular Monolith: 2.50\nSpace-Based: 2.33\nData Mesh: 2.33\nMLOps Pipelines: 2.33\nLayered: 2.33\nSOA: 2.33\nOrchestration-Driven SOA: 2.33\nMonolítica: 2.00\nServerless: 2.00\n\n🧠 Recomendación:\n✅ Arquitectura sugerida: Microservicios\n\n📌 Parámetros relevantes: escalabilidad, complejidad, experiencia, costo, mantenibilidad, seguridad\n\n➕ Ventajas relevantes según los libros:\n\n* La arquitectura de Microservicios permite una mayor escalabilidad y flexibilidad, al permitir que cada servicio se desarrolle y se lance de forma independiente (Fundamentals of Software Architecture, Capítulo 5).\n* La complejidad se puede manejar mejor al dividir la aplicación en servicios más pequeños yautónomos, cada uno con una responsabilidad específica (Software Architecture: The Hard Parts, Capítulo 3).\n* La experiencia del equipo de desarrollo se puede aprovechar al permitir que cada equipo de desarrollo trabaje en un servicio específico, sin afectar a otros servicios (Fundamentals of Software Architecture, Capítulo 5).\n* Aunque el costo de desarrollo y mantenimiento puede ser mayor, la arquitectura de Microservicios permite una mayor flexibilidad y escalabilidad, lo que puede justificar el costo adicional (Software Architecture: The Hard Parts, Capítulo 5).\n\n➖ Posibles limitaciones o desventajas:\n\n* La arquitectura de Microservicios introduce complejidad adicional al tener que manejar la comunicación entre servicios, lo que puede afectar la mantenibilidad (Fundamentals of Software Architecture, Capítulo 5).\n* La seguridad puede ser más desafiante al tener que asegurar multiple servicios y comunicaciones entre ellos (Software Architecture: The Hard Parts, Capítulo 6).\n\n📚 Justificación técnica:\nLa arquitectura de Microservicios se ajusta bien a los parámetros mencionados porque permite una mayor escalabilidad y flexibilidad, lo que se ajusta a la necesidad de alta escalabilidad y complejidad. La experiencia del equipo de desarrollo también se puede aprovechar al permitir que cada equipo trabaje en un servicio específico. Sin embargo, es importante tener en cuenta las posibles limitaciones y desventajas, como la complejidad adicional y el desafío de seguridad.\n\n💬 Conclusión final:\nLa arquitectura de Microservicios es una buena opción para este caso, siempre y cuando se tenga en cuenta las posibles limitaciones y desventajas. Es importante planificar cuidadosamente la implementación de la arquitectura de Microservicios para asegurar que se manejen adecuadamente la comunicación entre servicios y la seguridad."
+  },
+  {
+    "question": "kjhljh",
+    "answer": "safe"
+  },
+  {
+    "question": "kjhljh",
+    "answer": "safe"
+  },
+  {
+    "question": "kjhljh",
+    "answer": "safe"
+  },
+  {
+    "question": "kjhljh",
+    "answer": "No estoy autorizado a opinar fuera del marco de los libros \"Fundamentals of Software Architecture\" y \"Software Architecture: The Hard Parts\". ¿Puedes formular una pregunta sobre estos temas específicos para que pueda ayudarte con más precisión?"
+  },
+  {
+    "question": "kjhljh",
+    "answer": "No estoy autorizado a opinar sobre información sin contenido ni contexto. Si tienes alguna pregunta relacionada con el libro de arquitectura de software que te proporcioné, estaré encantado de ayudarte. Los libros son: \n\n1. Fundamentals of Software Architecture  \n   Autores: Mark Richards, Neal Ford  \n   Editorial: O'Reilly Media, 2020  \n   ISBN: 978-1-492-04345-4\n\n2. Software Architecture: The Hard Parts  \n   Autores: Neal Ford, Mark Richards, Pramod Sadalage, Zhamak Dehghani  \n   Editorial: O'Reilly Media, 2022  \n   ISBN: 978-1-492-08689-5"
+  },
+  {
+    "question": "kjhljh",
+    "answer": "No estoy autorizado a opinar sobre información que no está justificada en los libros \"Fundamentals of Software Architecture\" de Mark Richards y Neal Ford, o \"Software Architecture: The Hard Parts\" de Neal Ford, Mark Richards, Pramod Sadalage, y Zhamak Dehghani. ¿Puedes formular una pregunta relacionada con el diseño y la arquitectura de software que se corresponda con el contenido de estos libros?"
   }
 ]

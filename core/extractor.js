@@ -1,36 +1,41 @@
+const Groq = require('groq-sdk');
 
-async function extractParams(message, apiKey, aiserver) {
+async function extractParams(message, apiKey) {
   const systemPrompt = `
-Eres un extractor semántico de requerimientos de arquitectura de software.
-Extrae los siguientes parámetros: escalabilidad, complejidad, experiencia, costo, mantenibilidad, seguridad.
-Responde únicamente con un JSON válido con valores: bajo, medio, alto.
-Si no puedes inferir un valor, pon "desconocido".
+You are a semantic extractor for software architecture requirements.
+Extract the following parameters: scalability, complexity, experience, cost, maintainability, security.
+Respond ONLY with a valid JSON object, with each key being one of the parameters above and each value being one of: "low", "medium", "high".
+If you cannot infer a value for a parameter, set its value to "unknown".
+The response MUST be a single line, valid JSON object, with all six keys present. Example:
+{
+  "scalability": "medium",
+  "complexity": "high",
+  "experience": "unknown",
+  "cost": "low",
+  "maintainability": "medium",
+  "security": "high"
+}
+Do not include any explanation or extra text. Only output the JSON object. if there is now information about a parameter, omit it.
 `;
 
-  const body = {
-    model: 'llama3-70b-8192',
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const completion = await client.chat.completions.create({
+    model: 'llama-3.1-8b-instant',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }
-    ]
-  };
-
-  const response = await fetch(aiserver, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify(body),
+    ],
+    response_format: { type: 'json_object' }
   });
 
-  const data = await response.json();
-  const content = data.choices?.[0]?.message?.content.trim();
+  const content = completion.choices?.[0]?.message?.content.trim();
+  console.log(`[extractor] LLM response: ${content}`);
   try {
     const parsed = JSON.parse(content);
     return parsed;
   } catch (e) {
-    throw new Error('Respuesta LLM no fue JSON parseable', { cause: e });
+    console.error('Error parsing LLM response:', e);
+    throw new Error('Invalid JSON from LLM');
   }
 }
 

@@ -1,4 +1,4 @@
-const fetch = require('node-fetch');
+const Groq = require('groq-sdk');
 
 const librosFuente = `
 Eres un asistente experto en arquitectura de software. Solo puedes responder preguntas usando el contenido de los siguientes libros:
@@ -16,24 +16,18 @@ Eres un asistente experto en arquitectura de software. Solo puedes responder pre
 Tu respuesta debe estar en español. Si no puedes justificar tu respuesta basándote en estos libros, responde que no estás autorizado a opinar fuera del marco de estas obras.
 `;
 
-async function answerWithKnowledge(message, apiKey, aiserver) {
-  const response = await fetch(aiserver, {
-    method: 'POST',
-    headers: {
-      'Authorization': `Bearer ${apiKey}`,
-      'Content-Type': 'application/json',
-    },
-    body: JSON.stringify({
-      model: 'llama3-70b-8192',
-      messages: [
-        { role: 'system', content: librosFuente },
-        { role: 'user', content: message }
-      ]
-    }),
+async function answerWithKnowledge(message) {
+  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const completion = await client.chat.completions.create({
+    model: 'llama-3.1-8b-instant',
+    messages: [
+      { role: 'system', content: librosFuente },
+      { role: 'user', content: message }
+    ]
   });
+  console.log('[knowledge_responder] Respuesta de Groq:', completion);
 
-  const data = await response.json();
-  return data.choices?.[0]?.message?.content || 'Respuesta no disponible.';
+  return completion.choices?.[0]?.message?.content || 'Respuesta no disponible.';
 }
 
 module.exports = {
