@@ -26,15 +26,18 @@
       box-shadow: 0 0 0 3px #808080;
     }
 
-    textarea {
+    textarea, input.form-control {
       width: 100%;
       font-family: monospace;
       font-size: 16px;
       resize: none;
       padding: 8px;
+      background-color: #fff;
+      border: 1px solid #000;
+      color: #000;
     }
 
-    #response {
+    #response, #historyDisplay {
       background-color: #000;
       color: #00ff00;
       padding: 20px;
@@ -44,6 +47,7 @@
       max-height: 400px;
       overflow-y: auto;
       white-space: pre-wrap;
+      word-wrap: break-word;
     }
 
     .btn-dos {
@@ -79,46 +83,201 @@
       <p>🖥️ Asistente para arquitectura de software</p>
     </div>
 
-    <div class="shell-box">
-      <label for="userInput">Escribe tu pregunta:</label>
-      <textarea id="userInput" rows="4" placeholder="Ej: ¿Qué arquitectura conviene si quiero bajo acoplamiento y alta escalabilidad?"></textarea>
-      <br><br>
-      <button class="btn btn-dos" onclick="askAI()">▶ Enviar</button>
+    <!-- User Login Section -->
+    <div id="userLogin">
+      <div class="shell-box">
+        <label for="initialUserName">Ingresa tu nombre de usuario:</label>
+        <input type="text" id="initialUserName" class="form-control" placeholder="Ej: alan_turing">
+        <br><br>
+        <button class="btn btn-dos" onclick="enterChat()">▶ Iniciar o Continuar Chat</button>
+      </div>
     </div>
 
-    <div id="response" class="container">
-      (esperando respuesta...)
+    <!-- Chat Interface Section (hidden by default) -->
+    <div id="chatInterface" style="display:none;">
+      <div class="shell-box">
+        <label for="userInput">Escribe tu pregunta:</label>
+        <textarea id="userInput" rows="4" placeholder="Ej: ¿Qué arquitectura conviene si quiero bajo acoplamiento y alta escalabilidad?"></textarea>
+        <br><br>
+        <button class="btn btn-dos" onclick="askAI()">▶ Enviar</button>
+        <br><br>
+        <button class="btn btn-default" style="width: 48%; float: left;" onclick="showHistory()">Ver Historial</button>
+        <button class="btn btn-default" style="width: 48%; float: right;" onclick="returnToMain()">Salir</button>
+        <div style="clear:both;"></div>
+      </div>
+
+      <div id="response" class="container">
+        (esperando respuesta...)
+      </div>
+      <div id="loading" class="loading" style="display:none;">
+        🕐 Procesando...
+      </div>
     </div>
-    <div id="loading" class="loading" style="display:none;">
-      🕐 Procesando...
+
+    <!-- History Section (hidden by default) -->
+    <div id="historySection" style="display:none;">
+        <div class="shell-box">
+            <h2 id="historyTitle"></h2>
+            <div id="historyDisplay"></div>
+            <br>
+            <button class="btn btn-dos" onclick="returnToChat()">Volver al Chat</button>
+        </div>
     </div>
   </div>
 
   <script>
+    let currentUserId = null;
+
+    async function enterChat() {
+        const userNameInput = document.getElementById('initialUserName');
+        const user = userNameInput.value.trim();
+        if (!user) {
+            alert('Por favor, ingresa un nombre de usuario.');
+            return;
+        }
+        currentUserId = user;
+
+        document.getElementById('userLogin').style.display = 'none';
+        document.getElementById('chatInterface').style.display = 'block';
+        document.getElementById('historySection').style.display = 'none';
+        
+        const responseBox = document.getElementById('response');
+        responseBox.innerHTML = `Bienvenido, ${currentUserId}. Cargando tu sesión...`;
+
+        try {
+            const historyRes = await fetch(`/archssistant/history/${currentUserId}`);
+            if (!historyRes.ok) throw new Error('Error fetching history');
+            const historyData = await historyRes.json();
+            
+            const activeConversation = historyData.find(c => c.isActive);
+
+            if (activeConversation && activeConversation.conversation.fullHistory.length > 0) {
+                responseBox.innerHTML = ''; // Clear loading message
+                activeConversation.conversation.fullHistory.forEach(item => {
+                    appendMessage(responseBox, `Tú: ${item.question}`);
+                    appendMessage(responseBox, `Archssistant: ${item.answer}\n`);
+                });
+            } else {
+                responseBox.innerHTML = `Bienvenido, ${currentUserId}. No hay una conversación activa. ¡Haz tu primera pregunta!`;
+            }
+
+        } catch (error) {
+            responseBox.textContent = '⚠️ Error al cargar la sesión. Puedes empezar una nueva conversación.';
+            console.error(error);
+        }
+    }
+
     async function askAI() {
-      const userInput = document.getElementById('userInput').value;
+      const userInput = document.getElementById('userInput');
+      const message = userInput.value.trim();
+      if (!message) return;
+
       const responseBox = document.getElementById('response');
       const loading = document.getElementById('loading');
 
-      responseBox.textContent = '';
+      appendMessage(responseBox, `Tú: ${message}`);
+      userInput.value = '';
       loading.style.display = 'block';
+      responseBox.scrollTop = responseBox.scrollHeight;
 
       try {
         const res = await fetch('/archssistant', {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: userInput })
+          body: JSON.stringify({ message: message, userId: currentUserId })
         });
 
         const data = await res.json();
-        responseBox.textContent = data.reply || '(Sin respuesta)';
+        appendMessage(responseBox, `Archssistant: ${data.reply || '(Sin respuesta)'}\n`);
+
       } catch (error) {
-        responseBox.textContent = '⚠️ Error al contactar al servidor.';
+        appendMessage(responseBox, '⚠️ Error al contactar al servidor.\n');
         console.error(error);
       } finally {
         loading.style.display = 'none';
+        responseBox.scrollTop = responseBox.scrollHeight;
       }
     }
+
+    async function showHistory() {
+        document.getElementById('chatInterface').style.display = 'none';
+        document.getElementById('historySection').style.display = 'block';
+        
+        const historyDisplay = document.getElementById('historyDisplay');
+        const historyTitle = document.getElementById('historyTitle');
+        
+        historyTitle.innerText = `Historial de: ${currentUserId}`;
+        historyDisplay.innerHTML = 'Cargando historial...';
+
+        try {
+            const res = await fetch(`/archssistant/history/${currentUserId}`);
+            const data = await res.json();
+
+            if (data.length === 0) {
+                historyDisplay.innerHTML = 'No hay conversaciones en el historial.';
+                return;
+            }
+
+            historyDisplay.innerHTML = '';
+            data.forEach(conv => {
+                const status = conv.isActive ? '(Activa)' : '(Archivada)';
+                const header = document.createElement('div');
+                header.innerHTML = `<strong>Conversación del ${new Date(conv.createdAt).toLocaleString()} ${status}</strong>`;
+                header.style.cursor = 'pointer';
+                header.style.backgroundColor = '#0000a0';
+                header.style.padding = '5px';
+                header.style.border = '1px solid white';
+                header.style.marginBottom = '5px';
+                
+                const content = document.createElement('div');
+                content.style.display = 'none';
+                content.style.padding = '10px';
+                content.style.border = '1px dashed #ccc';
+                
+                if (conv.conversation.fullHistory.length > 0) {
+                    conv.conversation.fullHistory.forEach(item => {
+                        content.innerHTML += `<strong>Tú:</strong> ${item.question}<br>`;
+                        content.innerHTML += `<strong>Archssistant:</strong> ${item.answer}<br>---<br>`;
+                    });
+                } else {
+                    content.innerHTML = 'Esta conversación está vacía.';
+                }
+
+                header.onclick = () => {
+                    content.style.display = content.style.display === 'none' ? 'block' : 'none';
+                };
+
+                historyDisplay.appendChild(header);
+                historyDisplay.appendChild(content);
+            });
+
+        } catch (error) {
+            historyDisplay.innerHTML = '⚠️ Error al cargar el historial.';
+            console.error(error);
+        }
+    }
+
+    function returnToChat() {
+        document.getElementById('historySection').style.display = 'none';
+        document.getElementById('chatInterface').style.display = 'block';
+    }
+
+    function returnToMain() {
+        currentUserId = null;
+        document.getElementById('chatInterface').style.display = 'none';
+        document.getElementById('historySection').style.display = 'none';
+        document.getElementById('userLogin').style.display = 'block';
+        document.getElementById('initialUserName').value = '';
+        document.getElementById('response').innerHTML = '(esperando respuesta...)';
+    }
+
+    function appendMessage(box, text) {
+        if (box.innerHTML === '(esperando respuesta...)' || box.innerHTML.includes('Bienvenido')) {
+            box.innerHTML = '';
+        }
+        box.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
+    }
+
   </script>
 
 </body>
