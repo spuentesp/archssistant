@@ -151,8 +151,9 @@ function saveConversation(conversation) {
                      WHERE id = ?`;
         const paramsString = typeof params === 'string' ? params : JSON.stringify(params);
         const historyString = typeof history === 'string' ? history : JSON.stringify(history);
+        const isActiveInt = typeof isActive === 'boolean' ? (isActive ? 1 : 0) : isActive;
 
-        db.run(sql, [paramsString, historyString, intent, state, isActive, id], function(err) {
+        db.run(sql, [paramsString, historyString, intent, state, isActiveInt, id], function(err) {
             if (err) {
                 return reject(err);
             }
