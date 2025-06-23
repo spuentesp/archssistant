@@ -37,8 +37,11 @@ function classifyIntentRegex(message) {
     return 'inform';
 }
 
-async function classifyIntent(message, apiKey) {
-    const groq = new Groq({ apiKey });
+async function classifyIntent(message, apiKey, baseURL) {
+    const groq = new Groq({
+        apiKey,
+        baseURL
+    });
 
     const systemPrompt = `
 Eres un clasificador de intenciones para un asistente de arquitectura de software.

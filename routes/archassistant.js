@@ -11,14 +11,14 @@ const { getConversationsForUser } = require('../db/database');
 
 router.post('/', async (req, res) => {
   const { message, conversationId, userId } = req.body;
-  const apiKey = process.env.GROQ_KEY;
-  const aiserver = process.env.AISERVER;
+  const apiKey = process.env.GROQ_API_KEY;
+  const baseURL = process.env.AISERVER;
 
   if (!userId) {
     return res.status(400).json({ error: 'Falta el ID de usuario' });
   }
 
-  if (!apiKey || !aiserver) {
+  if (!apiKey || !baseURL) {
     console.error('[archssistant] Error: Faltan configuraciones de API (GROQ_KEY o AISERVER)');
     return res.status(500).json({ error: 'Faltan configuraciones de API' });
   }
@@ -28,11 +28,13 @@ router.post('/', async (req, res) => {
 
     const conversation = await getOrCreateConversation(userId, conversationId);
 
-    if (!conversation.intent) {
-        conversation.intent = await classifyIntent(message, apiKey, aiserver);
+    // 2. Classify intent
+    if (!conversation.intent || message.toLowerCase().startsWith('system:')) {
+        conversation.intent = await classifyIntent(message, apiKey, baseURL);
     }
 
-    const params = await extractHybridParams(message, apiKey, aiserver);
+    // 3. Update conversation state
+    const params = await extractHybridParams(message, apiKey, baseURL);
     updateConversationParams(conversation, params);
 
     const action = getNextAction(conversation);
@@ -43,14 +45,14 @@ router.post('/', async (req, res) => {
     switch (action) {
         case 'ask_params': {
             const missingParams = ALL_PARAMS.filter(p => !conversation.params[p]);
-            reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, aiserver);
+            reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
             break;
         }
         case 'recommend_architecture': {
             const evaluacion = evaluateArchitecture(conversation.params);
             const topArch = evaluacion[0]?.name || 'Monolítica';
             const fallbackArch = evaluacion[1]?.name || 'Layered';
-            const explicacion = await explainArchitecture(aiserver, apiKey, topArch, fallbackArch, conversation.params);
+            const explicacion = await explainArchitecture(baseURL, apiKey, topArch, fallbackArch, conversation.params);
             reply = `📊 Evaluación:\n${evaluacion
                 .map(r => `${r.name}: ${r.score.toFixed(2)}`)
                 .join('\n')}\n\n🧠 Recomendación:\n${explicacion}`;
@@ -58,7 +60,7 @@ router.post('/', async (req, res) => {
             break;
         }
         case 'answer_knowledge':
-            reply = await answerWithKnowledge(message, apiKey, aiserver);
+            reply = await answerWithKnowledge(message, apiKey, baseURL);
             break;
         case 'compare_architecture':
             // Lógica para comparar arquitecturas (a implementar)

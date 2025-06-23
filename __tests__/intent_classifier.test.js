@@ -19,7 +19,7 @@ describe('Intent Classifier', () => {
             }
         };
 
-        const intent = await classifyIntent('Necesito una arquitectura para mi nueva red social', 'fake_api_key');
+        const intent = await classifyIntent('Necesito una arquitectura para mi nueva red social', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('evaluate');
         expect(Groq.prototype.chat.completions.create).toHaveBeenCalled();
     });
@@ -30,7 +30,7 @@ describe('Intent Classifier', () => {
         };
         Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
 
-        const intent = await classifyIntent('diferencia entre monolítico y microservicios', 'fake_api_key');
+        const intent = await classifyIntent('diferencia entre monolítico y microservicios', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('compare');
     });
 
@@ -40,14 +40,14 @@ describe('Intent Classifier', () => {
         };
         Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
 
-        const intent = await classifyIntent('¿qué es la escalabilidad?', 'fake_api_key');
+        const intent = await classifyIntent('¿qué es la escalabilidad?', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('inform');
     });
 
     test('should fall back to regex if LLM fails', async () => {
         Groq.prototype.chat.completions.create.mockRejectedValue(new Error('LLM Error'));
 
-        const intent = await classifyIntent('comparar monolítico vs microservicios', 'fake_api_key');
+        const intent = await classifyIntent('comparar monolítico vs microservicios', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('compare');
     });
 
@@ -57,7 +57,7 @@ describe('Intent Classifier', () => {
         };
         Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
 
-        const intent = await classifyIntent('necesito una arquitectura para un sistema de logística', 'fake_api_key');
+        const intent = await classifyIntent('necesito una arquitectura para un sistema de logística', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('evaluate');
     });
 });
