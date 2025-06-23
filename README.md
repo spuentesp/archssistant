@@ -12,82 +12,133 @@ actualmente desplegado aqui https://archssistant.onrender.com/
 
 ## 🏗️ Diagrama de Arquitectura
 
+El sistema utiliza una arquitectura modular orquestada por un manejador de conversaciones que gestiona el estado y el flujo de la interacción.
+
 ```mermaid
 graph TD
-  UI[Frontend]
-  UI --> API[Express API /archssistant]
-  API --> Processor[Orquestador]
-  Processor --> Extractor[extractHybridParams]
-  Extractor --> LLM1[AI Server]
-  Processor --> Evaluator[evaluateArchitecture]
-  Evaluator --> LLM2[AI Server]
-  Processor --> Explainer[explainArchitecture]
-  Explainer --> LLM3[AI Server]
-  Processor --> KnowledgeResponder[answerWithKnowledge]
-  KnowledgeResponder --> LLM4[AI Server]
-  Processor --> Storage[storage.json]
+    subgraph "User Interface"
+        UI[Frontend]
+    end
+
+    subgraph "Backend (Node.js/Express)"
+        API[API Route: /archssistant]
+        Orchestrator(Orquestador Conversacional)
+        DB[(Database)]
+    end
+
+    subgraph "Core Logic"
+        CM[Conversation Manager]
+        IC[Intent Classifier]
+        HE[Hybrid Extractor]
+        EV[Evaluator]
+        EX[Explainer]
+        KR[Knowledge Responder]
+    end
+    
+    subgraph "External Services"
+        LLM[AI Server / LLM]
+    end
+
+    UI --> API
+    API --> Orchestrator
+    
+    Orchestrator --> CM
+    Orchestrator --> IC
+    Orchestrator --> HE
+    Orchestrator --> EV
+    Orchestrator --> EX
+    Orchestrator --> KR
+    
+    IC --> LLM
+    HE --> LLM
+    EX --> LLM
+    KR --> LLM
+
+    CM --> DB
 ```
 
 ---
 
 ## 🔄 Flujo de Procesamiento
 
+El flujo es conversacional. El sistema mantiene el estado para recopilar parámetros, aclarar la intención y finalmente ofrecer una recomendación.
+
 ```mermaid
 sequenceDiagram
-  participant Usuario
-  participant UI
-  participant API
-  participant Processor
-  participant Extractor
-  participant Evaluator
-  participant Explainer
-  participant KnowledgeResponder
-  participant LLM
+    participant User
+    participant API
+    participant ConversationManager as CM
+    participant IntentClassifier as IC
+    participant HybridExtractor as HE
+    participant Explainer
+    participant Evaluator
+    participant LLM
 
-  Usuario->>UI: Escribe requerimiento
-  UI->>API: POST /archssistant con mensaje
-  API->>Processor: Pasa mensaje
-  Processor->>Extractor: extrae parámetros híbridos
-  Extractor->>LLM: consulta IA
-  Extractor->>Processor: parámetros extraídos
-  Processor->>Evaluator: evalúa arquitecturas
-  Evaluator->>LLM: consulta IA
-  Evaluator->>Processor: resultado evaluación
-  Processor->>Explainer: solicita explicación
-  Explainer->>LLM: consulta IA
-  Explainer->>Processor: explicación generada
-  alt No parámetros válidos
-    Processor->>KnowledgeResponder: responde usando conocimiento técnico
-    KnowledgeResponder->>LLM: consulta IA
-    KnowledgeResponder->>Processor: respuesta enciclopédica
-  end
-  Processor->>API: Retorna respuesta
-  API->>UI: Muestra recomendación
+    User->>API: Envía mensaje (requerimiento inicial)
+    API->>CM: getOrCreateConversation()
+    CM-->>API: Devuelve estado de la conversación
+
+    API->>IC: classifyIntent(mensaje)
+    IC->>LLM: Consulta IA
+    IC-->>API: Intención (ej: recommend_architecture)
+
+    API->>HE: extractHybridParams(mensaje)
+    HE->>LLM: Consulta IA
+    HE-->>API: Parámetros extraídos (ej: escalabilidad, seguridad)
+
+    API->>CM: updateConversation(parámetros)
+    API->>CM: getNextAction()
+    CM-->>API: Próxima acción (ej: ask_params)
+
+    alt Si faltan parámetros
+        API->>Explainer: generateParameterQuestion()
+        Explainer->>LLM: Consulta IA para generar pregunta
+        Explainer-->>API: Pregunta de clarificación
+        API-->>User: "¿Qué nivel de seguridad necesitas?"
+    end
+
+    alt Si hay suficientes parámetros
+        API->>Evaluator: evaluateArchitecture(parámetros)
+        Evaluator-->>API: Arquitecturas puntuadas
+        API->>Explainer: explainArchitecture(resultado)
+        Explainer->>LLM: Consulta IA para generar explicación
+        Explainer-->>API: Explicación detallada
+        API-->>User: Recomendación y análisis
+        API->>CM: saveConversation(state='completed')
+    end
+    
+    API->>CM: saveConversation()
 ```
 
 ---
 
 ## ⚙️ Componentes del Core
 
-### 1. `routes/archassistant.js`
-Orquesta la secuencia principal: extrae parámetros, evalúa arquitecturas y explica la recomendación. Si no hay parámetros válidos, usa el KnowledgeResponder.
+### 1. `routes/archassistant.js` (Orquestador)
+Actúa como el orquestador principal. Gestiona el flujo de la conversación invocando a los diferentes módulos del core según el estado actual de la interacción, que es manejado por el `ConversationManager`.
 
-### 2. `extractHybridParams.js`
-Combina dos métodos para identificar parámetros relevantes:
-- `param_analyzer.js`: Usa un archivo JSON (`param_rules.json`) para mapear frases clave a parámetros técnicos como `seguridad`, `escalabilidad`, etc.
-- `extractor.js`: Usa LLM para inferir parámetros si el input no es explícito.
+### 2. `core/conversation_manager.js`
+Maneja el ciclo de vida y el estado de la conversación. Almacena el historial, los parámetros extraídos y la intención del usuario. Determina la siguiente acción a realizar (pedir más parámetros, recomendar, etc.). Se apoya en `db/database.js` para la persistencia.
 
-### 3. `evaluateArchitecture.js`
-Evalúa arquitecturas usando una tabla de decisión (`decision_engine.json`) que contiene valores numéricos para cada arquitectura según distintos parámetros. Calcula un score normalizado por pesos.
+### 3. `core/intent_classifier.js`
+Utiliza un LLM para clasificar la intención del usuario a partir de su mensaje (por ejemplo, si desea una recomendación, una comparación o una pregunta general).
 
-### 4. `explainArchitecture.js`
-Llama al modelo LLM con un **prompt en español**, estructurado y validado, que:
-- Resume los parámetros recibidos
-- Justifica la arquitectura recomendada exclusivamente con base en los libros mencionados
-- Ofrece ventajas, desventajas y una conclusión clara
+### 4. `core/hybrid_extractor.js`
+Combina dos métodos para identificar parámetros de arquitectura relevantes:
+- `param_analyzer.js`: Usa reglas predefinidas (`param_rules.json`) para un mapeo rápido.
+- `extractor.js`: Usa un LLM para inferir parámetros de manera flexible a partir del lenguaje natural.
 
-### 5. `answerWithKnowledge.js`
-Si no se detectan parámetros válidos, se consulta este módulo que devuelve respuestas enciclopédicas técnicas sobre arquitectura.
+### 5. `core/evaluator.js`
+Usa una matriz de decisión (`decision_engine.json`) para puntuar y clasificar las arquitecturas candidatas basándose en los parámetros recopilados.
+
+### 6. `core/explainer.js`
+Genera explicaciones detalladas sobre la arquitectura recomendada y también formula preguntas para obtener los parámetros que faltan, utilizando en ambos casos un LLM.
+
+### 7. `core/knowledge_responder.js`
+Proporciona respuestas a preguntas generales sobre arquitectura de software cuando la intención del usuario no es una recomendación.
+
+### 8. `db/database.js`
+Abstrae la lógica de la base de datos para crear, recuperar y actualizar el historial de conversaciones.
 
 ---
 
