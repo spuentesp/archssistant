@@ -1,55 +1,111 @@
 const sqlite3 = require('sqlite3').verbose();
+const { v4: uuidv4 } = require('uuid');
 
-// Use in-memory DB for tests, file-based for all other environments
-const dbPath = process.env.NODE_ENV === 'test' ? ':memory:' : './archssistant.db';
+let db;
 
-const db = new sqlite3.Database(dbPath, (err) => {
-    if (err) {
-        console.error('Error opening database', err.message);
-    } else {
-        console.log('Connected to the SQLite database.');
-        db.run(`CREATE TABLE IF NOT EXISTS conversations (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            userId TEXT NOT NULL,
-            conversation TEXT,
-            isActive INTEGER DEFAULT 1,
-            createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-            updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-        )`);
-    }
-});
-
-function getOrCreateConversation(userId) {
+function initDB(dbPath = './archssistant.db') {
     return new Promise((resolve, reject) => {
-        db.get('SELECT * FROM conversations WHERE userId = ? AND isActive = 1 ORDER BY updatedAt DESC', [userId], (err, row) => {
+        db = new sqlite3.Database(dbPath, (err) => {
+            if (err) {
+                console.error('Error opening database', err.message);
+                return reject(err);
+            }
+            console.log('Connected to the SQLite database.');
+            db.run(`CREATE TABLE IF NOT EXISTS conversations (
+                id TEXT PRIMARY KEY,
+                userId TEXT NOT NULL,
+                params TEXT,
+                history TEXT,
+                intent TEXT,
+                state TEXT,
+                isActive INTEGER DEFAULT 1,
+                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
+                updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
+            )`, (err) => {
+                if (err) {
+                    return reject(err);
+                }
+                resolve();
+            });
+        });
+    });
+}
+
+function getDB() {
+    if (!db) {
+        throw new Error("Database not initialized. Call initDB first.");
+    }
+    return db;
+}
+
+function closeDB() {
+    return new Promise((resolve, reject) => {
+        if (db) {
+            db.close((err) => {
+                if (err) {
+                    return reject(err);
+                }
+                console.log('Closed the database connection.');
+                db = null;
+                resolve();
+            });
+        } else {
+            resolve();
+        }
+    });
+}
+
+function createConversation(userId) {
+    return new Promise((resolve, reject) => {
+        const newConversation = {
+            id: uuidv4(),
+            userId,
+            params: JSON.stringify({}),
+            history: JSON.stringify([]),
+            intent: null,
+            state: 'initial',
+            isActive: 1,
+        };
+
+        const sql = `INSERT INTO conversations (id, userId, params, history, intent, state, isActive, createdAt, updatedAt)
+                     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
+
+        db.run(sql, [newConversation.id, newConversation.userId, newConversation.params, newConversation.history, newConversation.intent, newConversation.state, newConversation.isActive], function(err) {
+            if (err) {
+                return reject(err);
+            }
+            // Return the full conversation object
+            getConversation(newConversation.id).then(resolve).catch(reject);
+        });
+    });
+}
+
+
+function getConversation(id) {
+    return new Promise((resolve, reject) => {
+        db.get('SELECT * FROM conversations WHERE id = ?', [id], (err, row) => {
             if (err) {
                 return reject(err);
             }
             if (row) {
-                resolve(JSON.parse(row.conversation));
-            } else {
-                const newConversation = {
-                    userId: userId,
-                    detectedParameters: {},
-                    userQuestions: [],
-                    fullHistory: []
-                };
-                const conversationJson = JSON.stringify(newConversation);
-                db.run('INSERT INTO conversations (userId, conversation) VALUES (?, ?)', [userId, conversationJson], function(err) {
-                    if (err) {
-                        return reject(err);
-                    }
-                    resolve(newConversation);
-                });
+                row.params = JSON.parse(row.params || '{}');
+                row.history = JSON.parse(row.history || '[]');
             }
+            resolve(row || null);
         });
     });
 }
 
-function saveConversation(userId, conversation) {
+function saveConversation(conversation) {
     return new Promise((resolve, reject) => {
-        const conversationJson = JSON.stringify(conversation);
-        db.run('UPDATE conversations SET conversation = ?, updatedAt = CURRENT_TIMESTAMP WHERE userId = ? AND isActive = 1', [conversationJson, userId], function(err) {
+        const { id, params, history, intent, state, isActive } = conversation;
+        const sql = `UPDATE conversations
+                     SET params = ?, history = ?, intent = ?, state = ?, isActive = ?, updatedAt = CURRENT_TIMESTAMP
+                     WHERE id = ?`;
+        const paramsString = typeof params === 'string' ? params : JSON.stringify(params);
+        const historyString = typeof history === 'string' ? history : JSON.stringify(history);
+
+        db.run(sql, [paramsString, historyString, intent, state, isActive, id], function(err) {
             if (err) {
                 return reject(err);
             }
@@ -58,20 +114,33 @@ function saveConversation(userId, conversation) {
     });
 }
 
-function loadUserConversations(userId) {
+function getConversationsForUser(userId, activeOnly = false) {
     return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM conversations WHERE userId = ? ORDER BY createdAt DESC', [userId], (err, rows) => {
+        let sql = 'SELECT * FROM conversations WHERE userId = ?';
+        const params = [userId];
+
+        if (activeOnly) {
+            sql += ' AND isActive = 1';
+        }
+        sql += ' ORDER BY createdAt DESC';
+
+        db.all(sql, params, (err, rows) => {
             if (err) {
                 return reject(err);
             }
-            resolve(rows.map(row => ({...row, conversation: JSON.parse(row.conversation)})));
+            resolve(rows.map(row => ({
+                ...row,
+                params: JSON.parse(row.params || '{}'),
+                history: JSON.parse(row.history || '[]')
+            })));
         });
     });
 }
 
-function archiveConversation(userId) {
+function archiveConversation(id) {
     return new Promise((resolve, reject) => {
-        db.run('UPDATE conversations SET isActive = 0 WHERE userId = ? AND isActive = 1', [userId], function(err) {
+        const sql = `UPDATE conversations SET isActive = 0, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+        db.run(sql, [id], function(err) {
             if (err) {
                 return reject(err);
             }
@@ -79,10 +148,15 @@ function archiveConversation(userId) {
         });
     });
 }
+
 
 module.exports = {
-    getOrCreateConversation,
+    initDB,
+    getDB,
+    closeDB,
+    createConversation,
+    getConversation,
     saveConversation,
-    loadUserConversations,
-    archiveConversation
+    getConversationsForUser,
+    archiveConversation,
 };

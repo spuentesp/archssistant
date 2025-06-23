@@ -1,97 +1,111 @@
-const {
-    getOrCreateConversation,
-    saveConversation,
-    loadUserConversations,
-    archiveConversation
-} = require('../db/database');
-const sqlite3 = require('sqlite3').verbose();
-
-// This is a reference to the in-memory database created in database.js
-const db = new sqlite3.Database(':memory:');
+const database = require('../db/database');
 
 describe('Database Functions', () => {
+    beforeAll(async () => {
+        // Use an in-memory database for testing
+        await database.initDB(':memory:');
+    });
 
-    // Setup the table before all tests
-    beforeAll((done) => {
-        db.serialize(() => {
-            db.run(`CREATE TABLE IF NOT EXISTS conversations (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                userId TEXT NOT NULL,
-                conversation TEXT,
-                isActive INTEGER DEFAULT 1,
-                createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
-                updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )`);
-            done();
+    afterAll(async () => {
+        await database.closeDB();
+    });
+
+    beforeEach(async () => {
+        // Clear the conversations table before each test
+        const db = database.getDB();
+        await new Promise((resolve, reject) => {
+            db.run('DELETE FROM conversations', (err) => {
+                if (err) return reject(err);
+                resolve();
+            });
         });
     });
 
-    // Clear the table before each test
-    beforeEach((done) => {
-        db.run('DELETE FROM conversations', () => {
-            done();
-        });
-    });
-
-    // Close the DB connection after all tests
-    afterAll((done) => {
-        db.close(() => {
-            done();
-        });
-    });
-
-    test('getOrCreateConversation should create a new conversation for a new user', async () => {
-        const userId = 'testUser1';
-        const conversation = await getOrCreateConversation(userId);
+    test('createConversation should insert a new conversation and return it', async () => {
+        const userId = 'user1';
+        const conversation = await database.createConversation(userId);
 
         expect(conversation).toBeDefined();
+        expect(typeof conversation.id).toBe('string');
         expect(conversation.userId).toBe(userId);
-        expect(conversation.fullHistory).toEqual([]);
+        expect(conversation.state).toBe('initial');
+        expect(conversation.isActive).toBe(1);
+        expect(conversation.params).toEqual({});
+        expect(conversation.history).toEqual([]);
     });
 
-    test('getOrCreateConversation should return an existing active conversation', async () => {
-        const userId = 'testUser2';
-        const initialConv = await getOrCreateConversation(userId);
-        initialConv.fullHistory.push({ question: 'q1', answer: 'a1' });
-        await saveConversation(userId, initialConv);
+    test('getConversation should retrieve a specific conversation by ID', async () => {
+        const userId = 'user2';
+        const newConv = await database.createConversation(userId);
+        const retrievedConv = await database.getConversation(newConv.id);
 
-        const retrievedConv = await getOrCreateConversation(userId);
-        expect(retrievedConv.fullHistory.length).toBe(1);
-        expect(retrievedConv.fullHistory[0].question).toBe('q1');
+        expect(retrievedConv).toBeDefined();
+        expect(retrievedConv.id).toBe(newConv.id);
+        expect(retrievedConv.userId).toBe(userId);
     });
 
-    test('saveConversation should update a conversation', async () => {
-        const userId = 'testUser3';
-        let conversation = await getOrCreateConversation(userId);
-        conversation.userQuestions.push('is this saved?');
-        await saveConversation(userId, conversation);
-
-        const savedConv = await getOrCreateConversation(userId);
-        expect(savedConv.userQuestions).toContain('is this saved?');
+    test('getConversation should return null if conversation does not exist', async () => {
+        const conversation = await database.getConversation('non-existent-id');
+        expect(conversation).toBeNull();
     });
 
-    test('loadUserConversations should return all conversations for a user', async () => {
-        const userId = 'testUser4';
-        await getOrCreateConversation(userId); // First conversation
-        await archiveConversation(userId);       // Archive it
-        await getOrCreateConversation(userId); // Create a new active one
+    test('saveConversation should update an existing conversation', async () => {
+        const userId = 'user3';
+        let conversation = await database.createConversation(userId);
 
-        const allConversations = await loadUserConversations(userId);
-        expect(allConversations.length).toBe(2);
-        expect(allConversations.find(c => c.isActive === 0)).toBeDefined();
-        expect(allConversations.find(c => c.isActive === 1)).toBeDefined();
+        // Modify the conversation object
+        conversation.state = 'awaiting_params';
+        conversation.intent = 'clarify_intent';
+        const params = { missing: 'component' };
+        const history = [{ user: 'q1', assistant: 'a1' }];
+        conversation.params = params;
+        conversation.history = history;
+
+        await database.saveConversation(conversation);
+
+        const updatedConv = await database.getConversation(conversation.id);
+        expect(updatedConv.state).toBe('awaiting_params');
+        expect(updatedConv.intent).toBe('clarify_intent');
+        expect(updatedConv.params).toEqual(params);
+        expect(updatedConv.history).toEqual(history);
+    });
+
+    test('getConversationsForUser should retrieve all conversations for a user', async () => {
+        const userId = 'user4';
+        await database.createConversation(userId);
+        await database.createConversation(userId);
+
+        const conversations = await database.getConversationsForUser(userId);
+        expect(conversations.length).toBe(2);
+        expect(conversations[0].userId).toBe(userId);
+        expect(conversations[1].userId).toBe(userId);
     });
 
     test('archiveConversation should mark a conversation as inactive', async () => {
-        const userId = 'testUser5';
-        await getOrCreateConversation(userId);
-        await archiveConversation(userId);
+        const userId = 'user5';
+        const conversation = await database.createConversation(userId);
+        await database.archiveConversation(conversation.id);
 
-        const conversations = await loadUserConversations(userId);
-        expect(conversations[0].isActive).toBe(0);
+        const archivedConv = await database.getConversation(conversation.id);
+        expect(archivedConv.isActive).toBe(0);
 
-        // Check that getOrCreateConversation now makes a new one
-        const newConversation = await getOrCreateConversation(userId);
-        expect(newConversation.fullHistory.length).toBe(0);
+        // Check that it's not returned when fetching only active conversations
+        const activeConversations = await database.getConversationsForUser(userId, true);
+        expect(activeConversations.length).toBe(0);
+    });
+
+    test('getConversationsForUser should respect the activeOnly flag', async () => {
+        const userId = 'user6';
+        const conv1 = await database.createConversation(userId);
+        const conv2 = await database.createConversation(userId);
+
+        await database.archiveConversation(conv1.id);
+
+        const allConvs = await database.getConversationsForUser(userId, false); // all
+        expect(allConvs.length).toBe(2);
+
+        const activeConvs = await database.getConversationsForUser(userId, true); // active only
+        expect(activeConvs.length).toBe(1);
+        expect(activeConvs[0].id).toBe(conv2.id);
     });
 });

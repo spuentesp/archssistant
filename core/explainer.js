@@ -119,4 +119,41 @@ Usa solo:
   }
 }
 
-module.exports = { explainArchitecture };
+async function generateParameterQuestion(missingParams, history, apiKey, aiserver) {
+    const groq = new Groq({ apiKey });
+
+    const systemPrompt = `
+Eres un asistente de arquitectura de software amigable y conversacional. Tu objetivo es ayudar al usuario a definir los parámetros necesarios para una recomendación de arquitectura.
+NO des una recomendación de arquitectura todavía. Tu única tarea es hacer preguntas para aclarar los parámetros que faltan.
+Basado en el historial de la conversación y los parámetros que faltan, formula una pregunta natural y amigable para obtener la siguiente pieza de información.
+Solo pregunta por UN parámetro a la vez para no abrumar al usuario.
+
+Parámetros que faltan: ${missingParams.join(', ')}
+Historial de la conversación:
+${history.map(h => `${h.role}: ${h.content}`).join('\n')}
+`;
+
+    const userPrompt = "Formula la siguiente pregunta que debo hacerle al usuario.";
+
+    try {
+        const completion = await groq.chat.completions.create({
+            messages: [
+                { role: 'system', content: systemPrompt },
+                { role: 'user', content: userPrompt },
+            ],
+            model: "llama3-8b-8192",
+        });
+
+        const question = completion.choices[0]?.message?.content.trim();
+        return question || "¿Podrías darme más detalles sobre tu proyecto?";
+
+    } catch (error) {
+        console.error('[explainer] Error al generar la pregunta sobre parámetros:', error);
+        return 'Tuve un problema al generar la siguiente pregunta. ¿Podemos intentarlo de nuevo?';
+    }
+}
+
+module.exports = {
+    explainArchitecture,
+    generateParameterQuestion
+};

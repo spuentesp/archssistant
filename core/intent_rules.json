@@ -1,0 +1,25 @@
+{
+    "compare": [
+        {
+            "type": "any",
+            "patterns": [
+                "(diferencia|similitud|cuál.*mejor|versus|vs|compar(a|ación))"
+            ]
+        }
+    ],
+    "evaluate": [
+        {
+            "type": "any",
+            "patterns": [
+                "(necesito|busco|quiero|recomienda|sugiere|arquitectura para|proyecto|aplicación|app|sistema)"
+            ]
+        },
+        {
+            "type": "all",
+            "patterns": [
+                "(escalabilidad|mantenibilidad|costo|experiencia|seguridad|complejidad|tráfico|usuarios|datos|presupuesto)",
+                "(alto|media|bajo|alta|medio|baja|pocos|muchos)"
+            ]
+        }
+    ]
+}
