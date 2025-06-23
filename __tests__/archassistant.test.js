@@ -26,7 +26,7 @@ app.use(bodyParser.json());
 app.use('/archssistant', archssistantRoute);
 
 // Set dummy env vars for tests
-process.env.GROQ_KEY = 'test-key';
+process.env.GROQ_API_KEY = 'test-key';
 process.env.AISERVER = 'test-server';
 
 describe('Archssistant Routes', () => {
