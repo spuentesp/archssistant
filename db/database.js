@@ -11,7 +11,8 @@ function initDB(dbPath = './archssistant.db') {
                 return reject(err);
             }
             console.log('Connected to the SQLite database.');
-            db.run(`CREATE TABLE IF NOT EXISTS conversations (
+
+            const createTableSql = `CREATE TABLE IF NOT EXISTS conversations (
                 id TEXT PRIMARY KEY,
                 userId TEXT NOT NULL,
                 params TEXT,
@@ -21,11 +22,49 @@ function initDB(dbPath = './archssistant.db') {
                 isActive INTEGER DEFAULT 1,
                 createdAt DATETIME DEFAULT CURRENT_TIMESTAMP,
                 updatedAt DATETIME DEFAULT CURRENT_TIMESTAMP
-            )`, (err) => {
+            )`;
+
+            db.run(createTableSql, (err) => {
                 if (err) {
                     return reject(err);
                 }
-                resolve();
+
+                // Migration for columns that might be missing in older DBs
+                db.all("PRAGMA table_info(conversations)", (err, columns) => {
+                    if (err) {
+                        console.error("Error getting table info:", err);
+                        return reject(err);
+                    }
+
+                    const columnNames = columns.map(c => c.name);
+                    const migrations = [];
+
+                    if (!columnNames.includes('params')) {
+                        migrations.push(new Promise((res, rej) => {
+                            console.log('Running migration: Adding "params" column.');
+                            db.run('ALTER TABLE conversations ADD COLUMN params TEXT', e => e ? rej(e) : res());
+                        }));
+                    }
+
+                    if (!columnNames.includes('intent')) {
+                        migrations.push(new Promise((res, rej) => {
+                            console.log('Running migration: Adding "intent" column.');
+                            db.run('ALTER TABLE conversations ADD COLUMN intent TEXT', e => e ? rej(e) : res());
+                        }));
+                    }
+
+                    if (migrations.length > 0) {
+                        Promise.all(migrations)
+                            .then(() => {
+                                console.log('Database migration completed.');
+                                resolve();
+                            })
+                            .catch(reject);
+                    } else {
+                        console.log('Database schema is up to date.');
+                        resolve();
+                    }
+                });
             });
         });
     });
