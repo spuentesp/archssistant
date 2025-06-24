@@ -3,6 +3,8 @@ const {
     getConversation,
     saveConversation: dbSaveConversation,
     archiveConversation: dbArchiveConversation,
+    getActiveConversationForUser,
+    archiveAllConversationsForUserExceptOne,
 } = require('../db/database');
 
 const ALL_PARAMS = [
@@ -29,16 +31,26 @@ async function getOrCreateConversation(userId, conversationId) {
         throw new Error('userId is required to get or create a conversation.');
     }
 
+    // 1. If a specific, active conversation is requested, prioritize it.
     if (conversationId) {
         const conversation = await getConversation(conversationId);
-        // Ensure the conversation belongs to the user and is active
+        // Ensure it belongs to the user and is active.
         if (conversation && conversation.userId === userId && conversation.isActive) {
+            // As a data consistency measure, archive any other active conversations for this user.
+            await archiveAllConversationsForUserExceptOne(userId, conversation.id);
             return parseConversation(conversation);
         }
     }
 
-    // If no valid conversationId, or it doesn't belong to the user,
-    // or it's inactive, create a new one.
+    // 2. If no valid conversationId was provided, find the last active conversation for the user.
+    const activeConversation = await getActiveConversationForUser(userId);
+    if (activeConversation) {
+        // As a data consistency measure, archive any other active conversations for this user.
+        await archiveAllConversationsForUserExceptOne(userId, activeConversation.id);
+        return parseConversation(activeConversation);
+    }
+
+    // 3. If no active conversation exists for the user, create a new one.
     const newConversation = await createConversation(userId);
     return parseConversation(newConversation);
 }
@@ -46,6 +58,7 @@ async function getOrCreateConversation(userId, conversationId) {
 async function saveConversation(conversation) {
     // Create a copy to avoid mutating the object in memory
     const toSave = { ...conversation };
+
     if (typeof toSave.params !== 'string') {
         toSave.params = JSON.stringify(toSave.params);
     }
@@ -67,10 +80,10 @@ function updateConversationParams(conversation, newParams) {
 function getNextAction(conversation) {
     const missingParams = ALL_PARAMS.filter(p => !conversation.params[p]);
 
-    // Default to 'evaluate' if no intent is set but params are being discussed
-    const intent = conversation.intent || 'evaluate';
+    // Default to 'evaluar' if no intent is set but params are being discussed
+    const intent = conversation.intent || 'evaluar';
 
-    if (intent === 'evaluate') {
+    if (intent === 'evaluar') {
         if (missingParams.length > 0) {
             conversation.state = 'awaiting_params';
             return 'ask_params';
@@ -78,9 +91,9 @@ function getNextAction(conversation) {
             conversation.state = 'ready_to_evaluate';
             return 'recommend_architecture';
         }
-    } else if (intent === 'compare') {
+    } else if (intent === 'comparar') {
         return 'compare_architecture';
-    } else if (intent === 'inform') {
+    } else if (intent === 'informar') {
         return 'answer_knowledge';
     }
 

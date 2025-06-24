@@ -14,6 +14,9 @@ Si la pregunta está fuera del alcance de los libros de referencia, indica amabl
 `;
 
 async function answerWithKnowledge(message, history, apiKey) {
+  if (!message || message.includes('no puedo clasificar la consulta')) {
+    throw new Error('La consulta del usuario no es clara o no tiene sentido.');
+  }
   const client = new Groq({ apiKey });
 
   const messages = [
@@ -23,7 +26,7 @@ async function answerWithKnowledge(message, history, apiKey) {
   ];
 
   const completion = await client.chat.completions.create({
-    model: 'llama3-8b-8192',
+    model: 'gemma2-9b-it',
     messages: messages
   });
   console.log('[knowledge_responder] Respuesta de Groq:', completion);

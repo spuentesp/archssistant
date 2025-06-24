@@ -1,5 +1,5 @@
 {
-    "compare": [
+    "comparar": [
         {
             "type": "any",
             "patterns": [
@@ -7,7 +7,7 @@
             ]
         }
     ],
-    "evaluate": [
+    "evaluar": [
         {
             "type": "any",
             "patterns": [
@@ -19,6 +19,14 @@
             "patterns": [
                 "(escalabilidad|mantenibilidad|costo|experiencia|seguridad|complejidad|tráfico|usuarios|datos|presupuesto)",
                 "(alto|media|bajo|alta|medio|baja|pocos|muchos)"
+            ]
+        }
+    ],
+    "informar": [
+        {
+            "type": "any",
+            "patterns": [
+                "(qué es|explica|dime|define|significa)"
             ]
         }
     ]

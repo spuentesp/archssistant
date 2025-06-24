@@ -3,13 +3,12 @@ const database = require('../db/database');
 
 // Mock the database module to avoid actual DB calls and control test data
 jest.mock('../db/database', () => ({
-    initDB: jest.fn(),
-    closeDB: jest.fn(),
-    getDB: jest.fn(),
-    createConversation: jest.fn(),
     getConversation: jest.fn(),
+    createConversation: jest.fn(),
     saveConversation: jest.fn(),
     archiveConversation: jest.fn(),
+    getActiveConversationForUser: jest.fn(),
+    archiveAllConversationsForUserExceptOne: jest.fn(),
 }));
 
 describe('Conversation Manager', () => {
@@ -19,51 +18,77 @@ describe('Conversation Manager', () => {
         jest.clearAllMocks();
     });
 
-    test('getOrCreateConversation should create a new conversation if conversationId is not found', async () => {
-        const userId = 'user1';
-        const newConv = { id: 'conv1', userId, params: {}, history: [], state: 'initial', isActive: 1 };
-        database.getConversation.mockResolvedValue(null); // It doesn't exist
-        database.createConversation.mockResolvedValue(newConv);
+    describe('getOrCreateConversation', () => {
+        const userId = 'test-user';
+        const existingConv = { id: 'conv1', userId, params: {}, history: [], state: 'ongoing', isActive: true };
+        const newConv = { id: 'conv2', userId, params: {}, history: [], state: 'initial', isActive: true };
 
-        const conversation = await conversationManager.getOrCreateConversation(userId, 'non-existent-id');
+        test('should retrieve an existing, active conversation by ID and archive others', async () => {
+            database.getConversation.mockResolvedValue(existingConv);
 
-        expect(database.getConversation).toHaveBeenCalledWith('non-existent-id');
-        expect(database.createConversation).toHaveBeenCalledWith(userId);
-        expect(conversation).toEqual(newConv);
-    });
+            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
 
-    test('getOrCreateConversation should retrieve an existing, active conversation', async () => {
-        const userId = 'user2';
-        const conversationId = 'conv2';
-        const existingConv = { id: conversationId, userId, params: '{}', history: '[]', state: 'ongoing', isActive: 1 };
-        database.getConversation.mockResolvedValue(existingConv);
+            expect(database.getConversation).toHaveBeenCalledWith('conv1');
+            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, 'conv1');
+            expect(database.getActiveConversationForUser).not.toHaveBeenCalled();
+            expect(database.createConversation).not.toHaveBeenCalled();
+            expect(conversation).toEqual(existingConv);
+        });
 
-        const conversation = await conversationManager.getOrCreateConversation(userId, conversationId);
+        test('should not retrieve a conversation if the ID is for another user and should find the last active one', async () => {
+            database.getConversation.mockResolvedValue({ ...existingConv, userId: 'another-user' });
+            database.getActiveConversationForUser.mockResolvedValue(existingConv); // Find the correct active one
 
-        expect(database.getConversation).toHaveBeenCalledWith(conversationId);
-        expect(database.createConversation).not.toHaveBeenCalled();
-        expect(conversation.id).toBe(conversationId);
-        expect(conversation.params).toEqual({}); // Check parsing
-    });
-    
-    test('getOrCreateConversation should create a new one if existing conversation is inactive', async () => {
-        const userId = 'user3';
-        const conversationId = 'conv3';
-        const inactiveConv = { id: conversationId, userId, params: '{}', history: '[]', state: 'completed', isActive: 0 };
-        const newConv = { id: 'conv4', userId, params: {}, history: [], state: 'initial', isActive: 1 };
+            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
 
-        database.getConversation.mockResolvedValue(inactiveConv);
-        database.createConversation.mockResolvedValue(newConv);
+            expect(database.getConversation).toHaveBeenCalledWith('conv1');
+            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
+            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
+            expect(database.createConversation).not.toHaveBeenCalled();
+            expect(conversation).toEqual(existingConv);
+        });
 
-        const conversation = await conversationManager.getOrCreateConversation(userId, conversationId);
+        test('should retrieve the last active conversation and archive others if no ID is provided', async () => {
+            database.getActiveConversationForUser.mockResolvedValue(existingConv);
 
-        expect(database.getConversation).toHaveBeenCalledWith(conversationId);
-        expect(database.createConversation).toHaveBeenCalledWith(userId);
-        expect(conversation.id).toBe('conv4');
-    });
+            const conversation = await conversationManager.getOrCreateConversation(userId);
 
-    test('getOrCreateConversation should throw an error if userId is missing', async () => {
-        await expect(conversationManager.getOrCreateConversation(null, 'some-id')).rejects.toThrow('userId is required to get or create a conversation.');
+            expect(database.getConversation).not.toHaveBeenCalled();
+            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
+            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
+            expect(database.createConversation).not.toHaveBeenCalled();
+            expect(conversation).toEqual(existingConv);
+        });
+
+        test('should create a new conversation if no active one exists', async () => {
+            database.getActiveConversationForUser.mockResolvedValue(null);
+            database.createConversation.mockResolvedValue(newConv);
+
+            const conversation = await conversationManager.getOrCreateConversation(userId);
+
+            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
+            expect(database.archiveAllConversationsForUserExceptOne).not.toHaveBeenCalled();
+            expect(database.createConversation).toHaveBeenCalledWith(userId);
+            expect(conversation).toEqual(newConv);
+        });
+
+        test('should find last active conversation if the one found by ID is inactive', async () => {
+            const inactiveConv = { ...existingConv, isActive: false };
+            database.getConversation.mockResolvedValue(inactiveConv);
+            database.getActiveConversationForUser.mockResolvedValue(existingConv); // Find the correct active one
+
+            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
+
+            expect(database.getConversation).toHaveBeenCalledWith('conv1');
+            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
+            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
+            expect(database.createConversation).not.toHaveBeenCalled();
+            expect(conversation).toEqual(existingConv);
+        });
+
+        test('should throw an error if userId is missing', async () => {
+            await expect(conversationManager.getOrCreateConversation(null)).rejects.toThrow('userId is required to get or create a conversation.');
+        });
     });
 
 
@@ -113,6 +138,12 @@ describe('Conversation Manager', () => {
             const conversation = { intent: 'inform', params: {} };
             const action = conversationManager.getNextAction(conversation);
             expect(action).toBe('answer_knowledge');
+        });
+
+        it("should return 'compare_architecture' when intent is 'compare'", () => {
+            const conversation = { intent: 'compare', params: {} };
+            const action = conversationManager.getNextAction(conversation);
+            expect(action).toBe('compare_architecture');
         });
 
         it("should return 'clarify_intent' for unknown intents", () => {

@@ -33,8 +33,8 @@ function classifyIntentRegex(message) {
         }
     }
 
-    // If no specific intent is matched, default to "inform".
-    return 'inform';
+    // If no specific intent is matched, default to "informar".
+    return 'informar';
 }
 
 async function classifyIntent(message, apiKey, baseURL) {
@@ -47,11 +47,11 @@ async function classifyIntent(message, apiKey, baseURL) {
 Eres un clasificador de intenciones para un asistente de arquitectura de software.
 Tu tarea es clasificar la intención del usuario en una de las siguientes categorías:
 
-- "evaluate": El usuario quiere una recomendación de arquitectura de software, o está describiendo su proyecto. Ejemplos: "necesito una arquitectura para una red social", "mi app tendrá mucho tráfico de usuarios", "busco algo con alta disponibilidad".
-- "compare": El usuario quiere comparar dos o más arquitecturas. Ejemplos: "¿cuál es la diferencia entre microservicios y monolítico?", "monolítico vs microservicios".
-- "inform": El usuario está haciendo una pregunta de conocimiento general sobre arquitectura de software. Ejemplos: "¿qué es la escalabilidad?", "¿me explicas qué es un service mesh?".
+- "evaluar": El usuario quiere una recomendación de arquitectura de software, o está describiendo su proyecto. Ejemplos: "necesito una arquitectura para una red social", "mi app tendrá mucho tráfico de usuarios", "busco algo con alta disponibilidad".
+- "comparar": El usuario quiere comparar dos o más arquitecturas. Ejemplos: "¿cuál es la diferencia entre microservicios y monolítico?", "monolítico vs microservicios".
+- "informar": El usuario está haciendo una pregunta de conocimiento general sobre arquitectura de software. Ejemplos: "¿qué es la escalabilidad?", "¿me explicas qué es un service mesh?".
 
-Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta de la intención.
+Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta de la intención. Si la consulta no tiene sentido o no puedes clasificarla, responde 'no puedo clasificar la consulta'.
 `;
 
     try {
@@ -60,13 +60,18 @@ Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: `Clasifica esta consulta: "${message}"` },
             ],
-            model: "llama3-8b-8192",
+            model: "gemma2-9b-it",
         });
 
-        let intent = completion.choices[0]?.message?.content.trim().toLowerCase().replace(/"/g, '');
+        let intent = completion.choices[0]?.message?.content.trim().toLowerCase().replace(/\"/g, '');
 
-        if (['evaluate', 'compare', 'inform'].includes(intent)) {
+        if (['evaluar', 'comparar', 'informar'].includes(intent)) {
             console.log(`[IntentClassifier] LLM classified intent as: ${intent}`);
+            return intent;
+        }
+
+        if (intent.includes('no puedo clasificar la consulta')) {
+            console.log('[IntentClassifier] LLM could not classify intent.');
             return intent;
         }
         

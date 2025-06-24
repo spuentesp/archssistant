@@ -36,6 +36,8 @@ function initDB(dbPath = './archssistant.db') {
                         return reject(err);
                     }
 
+                    console.log("Existing columns info:", existingColumns);
+
                     const existingColumnNames = existingColumns.map(c => c.name);
 
                     const expectedSchema = {
@@ -104,23 +106,29 @@ function closeDB() {
 
 function createConversation(userId) {
     return new Promise((resolve, reject) => {
+        console.log(`[database] Attempting to create conversation for userId: ${userId}`);
         const newConversation = {
             id: uuidv4(),
             userId,
             params: JSON.stringify({}),
             history: JSON.stringify([]),
-            intent: null,
+            intent: '',
             state: 'initial',
             isActive: 1,
         };
 
-        const sql = `INSERT INTO conversations (id, userId, params, history, intent, state, isActive, createdAt, updatedAt)
-                     VALUES (?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP, CURRENT_TIMESTAMP)`;
-
-        db.run(sql, [newConversation.id, newConversation.userId, newConversation.params, newConversation.history, newConversation.intent, newConversation.state, newConversation.isActive], function(err) {
+        const sql = `INSERT INTO conversations (id, userId, params, history, intent, state, isActive)
+                     VALUES (?, ?, ?, ?, ?, ?, ?)`;
+        
+        console.log(`[database] Executing SQL: ${sql}`);
+        const sqlParams = [newConversation.id, newConversation.userId, newConversation.params, newConversation.history, newConversation.intent, newConversation.state, newConversation.isActive];
+        console.log('[database] Parameters:', sqlParams);
+        db.run(sql, sqlParams, function(err) {
             if (err) {
+                console.error('[database] Error creating conversation:', err);
                 return reject(err);
             }
+            console.log(`[database] Conversation created with id: ${newConversation.id}`);
             // Return the full conversation object
             getConversation(newConversation.id).then(resolve).catch(reject);
         });
@@ -130,33 +138,110 @@ function createConversation(userId) {
 
 function getConversation(id) {
     return new Promise((resolve, reject) => {
+        console.log(`[database] Attempting to get conversation with id: ${id}`);
+        console.log('[database] Parameters:', [id]);
         db.get('SELECT * FROM conversations WHERE id = ?', [id], (err, row) => {
             if (err) {
+                console.error(`[database] Error getting conversation with id ${id}:`, err);
                 return reject(err);
             }
             if (row) {
+                console.log(`[database] Found conversation with id: ${id}`);
                 row.params = JSON.parse(row.params || '{}');
                 row.history = JSON.parse(row.history || '[]');
+                row.isActive = !!row.isActive; // Convert integer to boolean
+            } else {
+                console.log(`[database] No conversation found with id: ${id}`);
             }
             resolve(row || null);
         });
     });
 }
 
+function getActiveConversationForUser(userId) {
+    return new Promise((resolve, reject) => {
+        console.log(`[database] Attempting to get active conversation for userId: ${userId}`);
+        db.get(
+            'SELECT * FROM conversations WHERE userId = ? AND isActive = 1 ORDER BY updatedAt DESC LIMIT 1',
+            [userId],
+            (err, row) => {
+                if (err) {
+                    console.error(`[database] Error getting active conversation for userId ${userId}:`, err);
+                    return reject(err);
+                }
+                if (row) {
+                    console.log(`[database] Found active conversation with id: ${row.id}`);
+                    row.params = JSON.parse(row.params || '{}');
+                    row.history = JSON.parse(row.history || '[]');
+                    row.isActive = !!row.isActive;
+                } else {
+                    console.log(`[database] No active conversation found for userId: ${userId}`);
+                }
+                resolve(row || null);
+            }
+        );
+    });
+}
+
+function archiveAllConversationsForUser(userId) {
+    return new Promise((resolve, reject) => {
+        console.log(`[database] Archiving all conversations for userId: ${userId}`);
+        const sql = 'UPDATE conversations SET isActive = 0 WHERE userId = ?';
+        db.run(sql, [userId], function(err) {
+            if (err) {
+                console.error(`[database] Error archiving conversations for userId ${userId}:`, err);
+                return reject(err);
+            }
+            console.log(`[database] Archived ${this.changes} conversations for userId: ${userId}`);
+            resolve();
+        });
+    });
+}
+
+function archiveAllConversationsForUserExceptOne(userId, conversationIdToKeepActive) {
+    return new Promise((resolve, reject) => {
+        console.log(`[database] Archiving all conversations for userId: ${userId} except for ${conversationIdToKeepActive}`);
+        const sql = 'UPDATE conversations SET isActive = 0 WHERE userId = ? AND id != ?';
+        db.run(sql, [userId, conversationIdToKeepActive], function(err) {
+            if (err) {
+                console.error(`[database] Error archiving other conversations for userId ${userId}:`, err);
+                return reject(err);
+            }
+            console.log(`[database] Archived ${this.changes} other conversations for userId: ${userId}`);
+            resolve();
+        });
+    });
+}
+
 function saveConversation(conversation) {
     return new Promise((resolve, reject) => {
+        console.log(`[database] Attempting to save conversation with id: ${conversation.id}`, conversation);
         const { id, params, history, intent, state, isActive } = conversation;
         const sql = `UPDATE conversations
                      SET params = ?, history = ?, intent = ?, state = ?, isActive = ?, updatedAt = CURRENT_TIMESTAMP
                      WHERE id = ?`;
         const paramsString = typeof params === 'string' ? params : JSON.stringify(params);
         const historyString = typeof history === 'string' ? history : JSON.stringify(history);
-        const isActiveInt = typeof isActive === 'boolean' ? (isActive ? 1 : 0) : isActive;
+        
+        // Ensure isActive is always an integer (0 or 1)
+        let isActiveInt;
+        if (typeof isActive === 'boolean') {
+            isActiveInt = isActive ? 1 : 0;
+        } else if (isActive === null || isActive === undefined) {
+            isActiveInt = 1; // Default to active if not specified
+        } else {
+            isActiveInt = isActive; // Assume it's already 0 or 1
+        }
 
-        db.run(sql, [paramsString, historyString, intent, state, isActiveInt, id], function(err) {
+        const sqlParams = [paramsString, historyString, intent, state, isActiveInt, id];
+        console.log(`[database] Executing SQL: ${sql}`);
+        console.log('[database] Parameters:', sqlParams);
+        db.run(sql, sqlParams, function(err) {
             if (err) {
+                console.error(`[database] Error saving conversation with id ${id}:`, err);
                 return reject(err);
             }
+            console.log(`[database] Successfully saved conversation with id: ${id}`);
             resolve();
         });
     });
@@ -164,6 +249,7 @@ function saveConversation(conversation) {
 
 function getConversationsForUser(userId, activeOnly = false) {
     return new Promise((resolve, reject) => {
+        console.log(`[database] Getting conversations for userId: ${userId}, activeOnly: ${activeOnly}`);
         let sql = 'SELECT * FROM conversations WHERE userId = ?';
         const params = [userId];
 
@@ -172,14 +258,19 @@ function getConversationsForUser(userId, activeOnly = false) {
         }
         sql += ' ORDER BY createdAt DESC';
 
+        console.log(`[database] Executing SQL: ${sql}`);
+        console.log('[database] Parameters:', params);
         db.all(sql, params, (err, rows) => {
             if (err) {
+                console.error(`[database] Error getting conversations for userId ${userId}:`, err);
                 return reject(err);
             }
+            console.log(`[database] Found ${rows.length} conversations for userId: ${userId}`);
             resolve(rows.map(row => ({
                 ...row,
                 params: JSON.parse(row.params || '{}'),
-                history: JSON.parse(row.history || '[]')
+                history: JSON.parse(row.history || '[]'),
+                isActive: !!row.isActive
             })));
         });
     });
@@ -187,11 +278,16 @@ function getConversationsForUser(userId, activeOnly = false) {
 
 function archiveConversation(id) {
     return new Promise((resolve, reject) => {
+        console.log(`[database] Archiving conversation with id: ${id}`);
         const sql = `UPDATE conversations SET isActive = 0, updatedAt = CURRENT_TIMESTAMP WHERE id = ?`;
+        console.log(`[database] Executing SQL: ${sql}`);
+        console.log('[database] Parameters:', [id]);
         db.run(sql, [id], function(err) {
             if (err) {
+                console.error(`[database] Error archiving conversation with id ${id}:`, err);
                 return reject(err);
             }
+            console.log(`[database] Successfully archived conversation with id: ${id}`);
             resolve();
         });
     });
@@ -204,6 +300,9 @@ module.exports = {
     closeDB,
     createConversation,
     getConversation,
+    getActiveConversationForUser,
+    archiveAllConversationsForUser,
+    archiveAllConversationsForUserExceptOne,
     saveConversation,
     getConversationsForUser,
     archiveConversation,

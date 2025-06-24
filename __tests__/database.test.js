@@ -29,7 +29,7 @@ describe('Database Functions', () => {
         expect(typeof conversation.id).toBe('string');
         expect(conversation.userId).toBe(userId);
         expect(conversation.state).toBe('initial');
-        expect(conversation.isActive).toBe(1);
+        expect(conversation.isActive).toBe(true);
         expect(conversation.params).toEqual({});
         expect(conversation.history).toEqual([]);
     });
@@ -87,7 +87,7 @@ describe('Database Functions', () => {
         await database.archiveConversation(conversation.id);
 
         const archivedConv = await database.getConversation(conversation.id);
-        expect(archivedConv.isActive).toBe(0);
+        expect(archivedConv.isActive).toBe(false);
 
         // Check that it's not returned when fetching only active conversations
         const activeConversations = await database.getConversationsForUser(userId, true);
@@ -107,5 +107,45 @@ describe('Database Functions', () => {
         const activeConvs = await database.getConversationsForUser(userId, true); // active only
         expect(activeConvs.length).toBe(1);
         expect(activeConvs[0].id).toBe(conv2.id);
+    });
+
+    test('getActiveConversationForUser should retrieve the most recent active conversation', async () => {
+        const userId = 'user7';
+        const conv1 = await database.createConversation(userId);
+        await database.archiveConversation(conv1.id); // Archive the first one
+        const conv2 = await database.createConversation(userId); // This one is active
+
+        const activeConv = await database.getActiveConversationForUser(userId);
+        expect(activeConv).toBeDefined();
+        expect(activeConv.id).toBe(conv2.id);
+        expect(activeConv.isActive).toBe(true);
+    });
+
+    test('getActiveConversationForUser should return null if no active conversations exist', async () => {
+        const userId = 'user8';
+        const conv1 = await database.createConversation(userId);
+        await database.archiveConversation(conv1.id);
+
+        const activeConv = await database.getActiveConversationForUser(userId);
+        expect(activeConv).toBeNull();
+    });
+
+    test('archiveAllConversationsForUser should mark all user conversations as inactive', async () => {
+        const userId = 'user9';
+        await database.createConversation(userId);
+        await database.createConversation(userId);
+
+        let activeConvs = await database.getConversationsForUser(userId, true);
+        expect(activeConvs.length).toBe(2);
+
+        await database.archiveAllConversationsForUser(userId);
+
+        activeConvs = await database.getConversationsForUser(userId, true);
+        expect(activeConvs.length).toBe(0);
+
+        const allConvs = await database.getConversationsForUser(userId, false);
+        expect(allConvs.length).toBe(2);
+        expect(allConvs[0].isActive).toBe(false);
+        expect(allConvs[1].isActive).toBe(false);
     });
 });

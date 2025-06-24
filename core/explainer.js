@@ -1,15 +1,6 @@
 const Groq = require('groq-sdk');
 
-/**
- * Explica por qué una arquitectura es adecuada usando fuentes autorizadas.
- * Si la explicación es insuficiente, intenta con una arquitectura secundaria (fallback).
- * @param {string} apiKey - Clave API.
- * @param {string} architecture - Arquitectura recomendada principal.
- * @param {string} fallbackArch - Segunda mejor opción.
- * @param {object} params - Parámetros técnicos detectados.
- * @returns {Promise<string>} - Explicación en español, estructurada.
- */
-async function explainArchitecture(architecture, fallbackArch, params) {
+async function explainArchitecture(architecture, fallbackArch, params, apiKey) {
   const paramSummary = JSON.stringify(params, null, 2);
 
   const systemPrompt = `
@@ -49,14 +40,13 @@ tu respuesta y explicacion debe estar siempre en idioma español. Puedes incluir
   const userPrompt = `¿Por qué "${architecture}" es adecuada para estos parámetros? Si no tienes suficiente respaldo, sugiere una mejor opción.`
 
   try {
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const client = new Groq({ apiKey });
     const completion = await client.chat.completions.create({
-      model: 'meta-llama/llama-guard-4-12b',
+      model: 'gemma2-9b-it',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' }
     });
     const content = completion.choices?.[0]?.message?.content?.trim();
 
@@ -95,14 +85,13 @@ Usa solo:
   const userPrompt = `Justifica el uso de la arquitectura "${fallbackArch}" en lugar de otra que no tuvo suficiente respaldo.`
 
   try {
-    const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+    const client = new Groq({ apiKey });
     const completion = await client.chat.completions.create({
-      model: 'llama-3.1-8b-instant',
+      model: 'gemma2-9b-it',
       messages: [
         { role: 'system', content: systemPrompt },
         { role: 'user', content: userPrompt }
       ],
-      response_format: { type: 'json_object' }
     });
     const content = completion.choices?.[0]?.message?.content?.trim();
 
@@ -119,7 +108,7 @@ Usa solo:
   }
 }
 
-async function generateParameterQuestion(missingParams, history, apiKey, aiserver) {
+async function generateParameterQuestion(missingParams, history, apiKey) {
     const groq = new Groq({ apiKey });
 
     const systemPrompt = `
@@ -141,7 +130,7 @@ ${history.map(h => `${h.role}: ${h.content}`).join('\n')}
                 { role: 'system', content: systemPrompt },
                 { role: 'user', content: userPrompt },
             ],
-            model: "llama3-8b-8192",
+            model: "gemma2-9b-it",
         });
 
         const question = completion.choices[0]?.message?.content.trim();

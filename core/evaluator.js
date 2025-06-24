@@ -16,7 +16,7 @@ function evaluateArchitecture(paramMap) {
   console.log('[evaluator] Evaluando arquitecturas con parámetros:', paramMap);
 
   const weights = Object.keys(paramMap)
-    .filter(k => paramMap[k] !== 'desconocido')
+    .filter(k => paramMap[k] !== 'desconocido' && paramMap[k] !== 'unknown')
     .reduce((acc, k) => {
       acc[k] = 1;
       return acc;

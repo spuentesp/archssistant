@@ -18,9 +18,9 @@ The response MUST be a single line, valid JSON object, with all six keys present
 Do not include any explanation or extra text. Only output the JSON object. if there is now information about a parameter, omit it.
 `;
 
-  const client = new Groq({ apiKey: process.env.GROQ_API_KEY });
+  const client = new Groq({ apiKey });
   const completion = await client.chat.completions.create({
-    model: 'llama-3.1-8b-instant',
+    model: 'gemma2-9b-it',
     messages: [
       { role: 'system', content: systemPrompt },
       { role: 'user', content: message }

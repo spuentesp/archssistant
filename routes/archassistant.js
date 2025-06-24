@@ -8,6 +8,8 @@ const { explainArchitecture, generateParameterQuestion } = require('../core/expl
 const { answerWithKnowledge } = require('../core/knowledge_responder');
 const { classifyIntent } = require('../core/intent_classifier');
 const { getConversationsForUser } = require('../db/database');
+const { compareArchitectures } = require('../core/compare_architecture');
+const { extractArchitecturesToCompare } = require('../core/compare_extractor');
 
 router.post('/', async (req, res) => {
   const { message, conversationId, userId } = req.body;
@@ -24,8 +26,6 @@ router.post('/', async (req, res) => {
   }
 
   try {
-    console.log(`[archssistant] Mensaje recibido: "${message}"`);
-
     const conversation = await getOrCreateConversation(userId, conversationId);
 
     // 2. Classify intent
@@ -34,13 +34,11 @@ router.post('/', async (req, res) => {
     }
 
     // 3. Update conversation state
-    const params = await extractHybridParams(message, apiKey, baseURL);
+    const params = await extractHybridParams(message, apiKey);
     updateConversationParams(conversation, params);
 
     const action = getNextAction(conversation);
     let reply;
-
-    console.log(`[archssistant] Action: ${action}`);
 
     switch (action) {
         case 'ask_params': {
@@ -62,10 +60,15 @@ router.post('/', async (req, res) => {
         case 'answer_knowledge':
             reply = await answerWithKnowledge(message, apiKey, baseURL);
             break;
-        case 'compare_architecture':
-            // Lógica para comparar arquitecturas (a implementar)
-            reply = "La funcionalidad de comparación aún no está implementada.";
+        case 'compare_architecture': {
+            const architectures = await extractArchitecturesToCompare(message, apiKey, baseURL);
+            if (architectures.length === 2) {
+                reply = await compareArchitectures(architectures[0], architectures[1], apiKey, baseURL);
+            } else {
+                reply = "Por favor, especifica dos arquitecturas para comparar. Por ejemplo: 'compara monolítica y microservicios'.";
+            }
             break;
+        }
         case 'clarify_intent':
             reply = "No estoy seguro de cómo ayudarte. ¿Podrías reformular tu pregunta?";
             break;
