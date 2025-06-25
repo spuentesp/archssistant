@@ -1,12 +1,4 @@
 {
-    "comparar": [
-        {
-            "type": "any",
-            "patterns": [
-                "(diferencia|similitud|cuál.*mejor|versus|vs|compar(a|ación))"
-            ]
-        }
-    ],
     "evaluar": [
         {
             "type": "any",
@@ -22,11 +14,11 @@
             ]
         }
     ],
-    "informar": [
+    "pregunta_general": [
         {
             "type": "any",
             "patterns": [
-                "(qué es|explica|dime|define|significa)"
+                "(qué es|explica|dime|define|significa|cómo funciona|cuáles son|ventajas|desventajas|diferencia|similitud|cuál.*mejor|versus|vs|compar(a|ación))"
             ]
         }
     ]

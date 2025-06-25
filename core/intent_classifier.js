@@ -33,8 +33,8 @@ function classifyIntentRegex(message) {
         }
     }
 
-    // If no specific intent is matched, default to "informar".
-    return 'informar';
+    // If no specific intent is matched, default to "pregunta_general".
+    return 'pregunta_general';
 }
 
 async function classifyIntent(message, apiKey, baseURL) {
@@ -48,8 +48,8 @@ Eres un clasificador de intenciones para un asistente de arquitectura de softwar
 Tu tarea es clasificar la intención del usuario en una de las siguientes categorías:
 
 - "evaluar": El usuario quiere una recomendación de arquitectura de software, o está describiendo su proyecto. Ejemplos: "necesito una arquitectura para una red social", "mi app tendrá mucho tráfico de usuarios", "busco algo con alta disponibilidad".
-- "comparar": El usuario quiere comparar dos o más arquitecturas. Ejemplos: "¿cuál es la diferencia entre microservicios y monolítico?", "monolítico vs microservicios".
-- "informar": El usuario está haciendo una pregunta de conocimiento general sobre arquitectura de software. Ejemplos: "¿qué es la escalabilidad?", "¿me explicas qué es un service mesh?".
+- "forzar_evaluacion": El usuario, después de que se le pidieran más datos, insiste en obtener una respuesta con la información que ya ha proporcionado. Ejemplos: "evalúa con lo que tienes", "no tengo más datos, solo responde", "dame la respuesta ya", "continúa", "así está bien".
+- "pregunta_general": El usuario está haciendo una pregunta de conocimiento general sobre arquitectura de software. Ejemplos: "¿qué es la escalabilidad?", "¿me explicas qué es un service mesh?", "¿cuál es la diferencia entre microservicios y monolítico?", "monolítico vs microservicios".
 
 Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta de la intención. Si la consulta no tiene sentido o no puedes clasificarla, responde 'no puedo clasificar la consulta'.
 `;
@@ -63,9 +63,9 @@ Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta
             model: "gemma2-9b-it",
         });
 
-        let intent = completion.choices[0]?.message?.content.trim().toLowerCase().replace(/\"/g, '');
+        let intent = completion.choices[0]?.message?.content.trim().toLowerCase().replace(/"/g, '');
 
-        if (['evaluar', 'comparar', 'informar'].includes(intent)) {
+        if (['evaluar', 'pregunta_general', 'forzar_evaluacion'].includes(intent)) {
             console.log(`[IntentClassifier] LLM classified intent as: ${intent}`);
             return intent;
         }

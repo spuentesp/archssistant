@@ -1,90 +1,97 @@
 const express = require('express');
 const router = express.Router();
+const fs = require('fs');
+const path = require('path');
 
-const { getOrCreateConversation, saveConversation, archiveConversation, updateConversationParams, getNextAction, ALL_PARAMS } = require('../core/conversation_manager');
+// Cargar datos de arquitectura para obtener dinámicamente los nombres de los parámetros
+const architectureDataPath = path.join(__dirname, '../core/architecture_params.json');
+const architectureData = JSON.parse(fs.readFileSync(architectureDataPath, 'utf-8'));
+const allParams = Object.keys(architectureData[0]).filter(key => key !== 'name');
+const MAX_QUESTIONS_BEFORE_SUGGESTION = allParams.length;
+
+const { getOrCreateConversation, saveConversation, updateConversationParams } = require('../core/conversation_manager');
 const { extractHybridParams } = require('../core/hybrid_extractor');
-const { evaluateArchitecture } = require('../core/evaluator');
-const { explainArchitecture, generateParameterQuestion } = require('../core/explainer');
-const { answerWithKnowledge } = require('../core/knowledge_responder');
+const { generateParameterQuestion, answerGeneralQuestion } = require('../core/explainer');
 const { classifyIntent } = require('../core/intent_classifier');
-const { getConversationsForUser } = require('../db/database');
-const { compareArchitectures } = require('../core/compare_architecture');
-const { extractArchitecturesToCompare } = require('../core/compare_extractor');
+const { getConversations } = require('../db/database');
+const { evaluateAndRespond } = require('../core/response_handler');
 
 router.post('/', async (req, res) => {
-  const { message, conversationId, userId } = req.body;
+  const { message, userId } = req.body;
   const apiKey = process.env.GROQ_API_KEY;
   const baseURL = process.env.AISERVER;
 
   if (!userId) {
-    return res.status(400).json({ error: 'Falta el ID de usuario' });
+    return res.status(400).json({ error: 'Falta el ID de usuario.' });
   }
 
   if (!apiKey || !baseURL) {
-    console.error('[archssistant] Error: Faltan configuraciones de API (GROQ_KEY o AISERVER)');
-    return res.status(500).json({ error: 'Faltan configuraciones de API' });
+    console.error('[archssistant] Error: API settings are missing (GROQ_KEY or AISERVER)');
+    return res.status(500).json({ error: 'Faltan configuraciones de API.' });
   }
 
   try {
-    const conversation = await getOrCreateConversation(userId, conversationId);
-
-    // 2. Classify intent
-    if (!conversation.intent || message.toLowerCase().startsWith('system:')) {
-        conversation.intent = await classifyIntent(message, apiKey, baseURL);
-    }
-
-    // 3. Update conversation state
-    const params = await extractHybridParams(message, apiKey);
-    updateConversationParams(conversation, params);
-
-    const action = getNextAction(conversation);
+    const conversation = await getOrCreateConversation(userId);
     let reply;
 
-    switch (action) {
-        case 'ask_params': {
-            const missingParams = ALL_PARAMS.filter(p => !conversation.params[p]);
-            reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
-            break;
-        }
-        case 'recommend_architecture': {
-            const evaluacion = evaluateArchitecture(conversation.params);
-            const topArch = evaluacion[0]?.name || 'Monolítica';
-            const fallbackArch = evaluacion[1]?.name || 'Layered';
-            const explicacion = await explainArchitecture(baseURL, apiKey, topArch, fallbackArch, conversation.params);
-            reply = `📊 Evaluación:\n${evaluacion
-                .map(r => `${r.name}: ${r.score.toFixed(2)}`)
-                .join('\n')}\n\n🧠 Recomendación:\n${explicacion}`;
-            conversation.state = 'completed';
-            break;
-        }
-        case 'answer_knowledge':
-            reply = await answerWithKnowledge(message, apiKey, baseURL);
-            break;
-        case 'compare_architecture': {
-            const architectures = await extractArchitecturesToCompare(message, apiKey, baseURL);
-            if (architectures.length === 2) {
-                reply = await compareArchitectures(architectures[0], architectures[1], apiKey, baseURL);
-            } else {
-                reply = "Por favor, especifica dos arquitecturas para comparar. Por ejemplo: 'compara monolítica y microservicios'.";
-            }
-            break;
-        }
-        case 'clarify_intent':
-            reply = "No estoy seguro de cómo ayudarte. ¿Podrías reformular tu pregunta?";
-            break;
-        default:
-            reply = "Ha ocurrido un error inesperado.";
-            break;
-    }
-
     conversation.history.push({ role: 'user', content: message });
-    conversation.history.push({ role: 'assistant', content: reply });
 
-    await saveConversation(conversation);
+    const intent = await classifyIntent(message, apiKey, baseURL);
+    console.log(`[archassistant] Intent classified as: ${intent}`);
+    console.log(`[archassistant] Current conversation state: ${conversation.state}`);
 
-    if (conversation.state === 'completed') {
-        await archiveConversation(conversation.id);
+    if (intent === 'pregunta_general') {
+        reply = await answerGeneralQuestion(message, apiKey, baseURL);
+        conversation.history.push({ role: 'assistant', content: reply });
+        await saveConversation(conversation);
+        return res.json({ reply, conversationId: conversation.id, state: conversation.state });
     }
+
+    if (intent === 'evaluar_arquitectura' || conversation.state === 'evaluation_started') {
+        if (conversation.state !== 'evaluation_started') {
+            conversation.state = 'evaluation_started';
+        }
+
+        // Solo extrae parámetros si la intención no es forzar la evaluación, 
+        // ya que se asume que el usuario está dando una orden y no nueva información.
+        if (intent !== 'forzar_evaluacion') {
+            const extractedParams = await extractHybridParams(message, apiKey, baseURL);
+            updateConversationParams(conversation, extractedParams);
+            console.log('[archassistant] Extracted and updated params:', conversation.params);
+        }
+
+        const missingParams = allParams.filter(p => !conversation.params[p] || conversation.params[p] === 'desconocido');
+
+        if (missingParams.length === 0 || intent === 'forzar_evaluacion') {
+            if (intent === 'forzar_evaluacion') {
+                console.log('[archassistant] User forced evaluation. Evaluating with current params.');
+            } else {
+                console.log('[archassistant] All params gathered. Evaluating.');
+            }
+            reply = await evaluateAndRespond(conversation, apiKey, baseURL);
+            conversation.state = 'completed';
+        } else {
+            console.log(`[archassistant] Missing params: ${missingParams.join(', ')}. Asking for more info.`);
+            
+            if (conversation.questionsAsked && conversation.questionsAsked >= MAX_QUESTIONS_BEFORE_SUGGESTION) {
+                const suggestion = "Veo que ya hemos cubierto varios puntos. ¿Quieres que evalúe una arquitectura con la información que tenemos, o prefieres que sigamos afinando con más preguntas? Puedes responder \"evalúa ya\" o seguir la conversación.";
+                const nextQuestion = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
+                reply = `${suggestion}\n\n${nextQuestion}`;
+            } else {
+                reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
+            }
+            conversation.questionsAsked = (conversation.questionsAsked || 0) + 1;
+        }
+    } else {
+        console.log('[archassistant] Unclear intent, assuming evaluation. Asking for initial parameters.');
+        conversation.state = 'evaluation_started';
+        const missingParams = allParams.filter(p => !conversation.params[p] || conversation.params[p] === 'desconocido');
+        reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
+        conversation.questionsAsked = (conversation.questionsAsked || 0) + 1;
+    }
+
+    conversation.history.push({ role: 'assistant', content: reply });
+    await saveConversation(conversation);
 
     res.json({ reply, conversationId: conversation.id, state: conversation.state });
 
@@ -97,10 +104,10 @@ router.post('/', async (req, res) => {
 router.get('/history/:userId', async (req, res) => {
     const { userId } = req.params;
     try {
-        const conversations = await getConversationsForUser(userId);
+        const conversations = await getConversations(userId);
         res.json(conversations);
     } catch (err) {
-        console.error('[archssistant] Error al cargar el historial:', err);
+        console.error('[archssistant] Error loading history:', err);
         res.status(500).json({ error: 'Error al cargar el historial.' });
     }
 });

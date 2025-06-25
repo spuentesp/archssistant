@@ -1,18 +1,8 @@
 const {
     createConversation,
-    getConversation,
     saveConversation: dbSaveConversation,
-    archiveConversation: dbArchiveConversation,
-    getActiveConversationForUser,
-    archiveAllConversationsForUserExceptOne,
+    getActiveConversation,
 } = require('../db/database');
-
-const ALL_PARAMS = [
-    "app_type", "user_traffic", "data_storage", "security_level",
-    "scalability", "budget", "dev_team_size", "deployment_speed",
-    "tech_stack", "real_time_features", "third_party_integrations",
-    "geographic_distribution", "availability", "compliance"
-];
 
 function parseConversation(conversation) {
     if (conversation) {
@@ -26,33 +16,27 @@ function parseConversation(conversation) {
     return conversation;
 }
 
-async function getOrCreateConversation(userId, conversationId) {
+async function getOrCreateConversation(userId) {
     if (!userId) {
         throw new Error('userId is required to get or create a conversation.');
     }
 
-    // 1. If a specific, active conversation is requested, prioritize it.
-    if (conversationId) {
-        const conversation = await getConversation(conversationId);
-        // Ensure it belongs to the user and is active.
-        if (conversation && conversation.userId === userId && conversation.isActive) {
-            // As a data consistency measure, archive any other active conversations for this user.
-            await archiveAllConversationsForUserExceptOne(userId, conversation.id);
-            return parseConversation(conversation);
-        }
+    console.log(`[conversation_manager] Getting or creating conversation for user ${userId}`);
+
+    // 1. Intenta obtener la conversación activa para el usuario.
+    let conversation = await getActiveConversation(userId);
+
+    // 2. Si no existe ninguna conversación activa, se crea una nueva.
+    // La función createConversation en la capa de base de datos se encarga de archivar las antiguas.
+    if (!conversation) {
+        console.log(`[conversation_manager] No active conversation found for user ${userId}. Creating a new one.`);
+        conversation = await createConversation(userId);
+    } else {
+        console.log(`[conversation_manager] Found active conversation ${conversation.id} for user ${userId}.`);
+        conversation = parseConversation(conversation);
     }
 
-    // 2. If no valid conversationId was provided, find the last active conversation for the user.
-    const activeConversation = await getActiveConversationForUser(userId);
-    if (activeConversation) {
-        // As a data consistency measure, archive any other active conversations for this user.
-        await archiveAllConversationsForUserExceptOne(userId, activeConversation.id);
-        return parseConversation(activeConversation);
-    }
-
-    // 3. If no active conversation exists for the user, create a new one.
-    const newConversation = await createConversation(userId);
-    return parseConversation(newConversation);
+    return conversation;
 }
 
 async function saveConversation(conversation) {
@@ -68,44 +52,16 @@ async function saveConversation(conversation) {
     await dbSaveConversation(toSave);
 }
 
-async function archiveConversation(conversationId) {
-    await dbArchiveConversation(conversationId);
-}
-
 function updateConversationParams(conversation, newParams) {
-    conversation.params = { ...conversation.params, ...newParams };
-    return conversation;
-}
-
-function getNextAction(conversation) {
-    const missingParams = ALL_PARAMS.filter(p => !conversation.params[p]);
-
-    // Default to 'evaluar' if no intent is set but params are being discussed
-    const intent = conversation.intent || 'evaluar';
-
-    if (intent === 'evaluar') {
-        if (missingParams.length > 0) {
-            conversation.state = 'awaiting_params';
-            return 'ask_params';
-        } else {
-            conversation.state = 'ready_to_evaluate';
-            return 'recommend_architecture';
+    for (const key in newParams) {
+        if (newParams[key] !== 'unknown') {
+            conversation.params[key] = newParams[key];
         }
-    } else if (intent === 'comparar') {
-        return 'compare_architecture';
-    } else if (intent === 'informar') {
-        return 'answer_knowledge';
     }
-
-    conversation.state = 'clarifying';
-    return 'clarify_intent';
 }
 
 module.exports = {
     getOrCreateConversation,
     saveConversation,
-    archiveConversation,
     updateConversationParams,
-    getNextAction,
-    ALL_PARAMS,
 };

@@ -3,7 +3,7 @@ const bodyParser = require('body-parser');
 const cors = require('cors');
 const path = require('path');
 require('dotenv').config();
-const { initDB } = require('./db/database');
+const { initializeDatabase } = require('./db/database');
 
 const app = express();
 const archssistantRoute = require('./routes/archassistant');
@@ -27,7 +27,7 @@ app.use((req, res) => {
 
 async function startServer() {
   try {
-    await initDB();
+    await initializeDatabase();
     app.listen(PORT, () => {
       console.log(`Servidor iniciado en http://${SERVER}:${PORT}`);
     });
