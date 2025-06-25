@@ -1,716 +1,186 @@
-# 🧠 Archssistant
+# Archssistant - Asistente de Arquitectura de Software
 
-**Desplegado en:** https://archssistant.onrender.com/
+Archssistant es un asistente conversacional inteligente diseñado para ayudar a los desarrolladores y arquitectos de software a elegir la arquitectura más adecuada para sus proyectos. A través de una conversación en lenguaje natural, el asistente recopila los requisitos del sistema y recomienda la mejor opción de su base de conocimiento.
 
-**Archssistant** es un asistente conversacional especializado en arquitectura de software que evalúa necesidades técnicas y recomienda arquitecturas adecuadas. El sistema está estrictamente basado en los conocimientos de:
+## Cómo funciona la aplicación
 
-- *Fundamentals of Software Architecture* — Richards & Ford — ISBN: 978-1-492-04345-4  
-- *Software Architecture: The Hard Parts* — Ford, Richards, Sadalage, Dehghani — ISBN: 978-1-492-08689-5
+La aplicación se basa en una arquitectura de componentes modulares que orquestan el flujo de la conversación, procesan el lenguaje natural y evalúan las opciones de arquitectura.
 
----
+El punto de entrada es `server.js`, que levanta un servidor Express y define la ruta principal `/archssistant`. Todas las solicitudes a esta ruta son manejadas por `routes/archassistant.js`, que actúa como controlador principal.
 
-## 🏗️ Arquitectura del Sistema
+Este controlador utiliza una instancia de `ConversationOrchestrator` (`core/orchestrator.js`), el cerebro de la aplicación. El orquestador gestiona el ciclo de vida de la conversación, desde que se recibe un mensaje hasta que se envía una respuesta.
 
-El sistema implementa una **arquitectura conversacional modular** con gestión de estado persistente, donde cada componente tiene responsabilidades específicas orquestadas por el manejador de conversaciones.
+## Flujo de la Conversación
 
-```mermaid
-graph TD
-    subgraph "🖥️ Frontend"
-        UI[Interface Web<br/>Bootstrap 386 Style]
-    end
+El flujo de interacción con el usuario es un ciclo continuo de preguntas y respuestas diseñado para recopilar información y ofrecer recomendaciones precisas.
 
-    subgraph "🚀 API Layer"
-        API[Router: /archssistant<br/>Orquestador Principal]
-        HIST[Router: /history<br/>Historial de Conversaciones]
-    end
+1.  **Inicio de la Conversación:** El usuario envía un mensaje. El `ConversationOrchestrator` recibe el mensaje y recupera o crea una sesión de conversación para ese usuario.
+2.  **Clasificación de Intención:** El orquestador utiliza el `IntentClassifier` (`core/intent/intent_classifier.js`) para determinar la intención del usuario (p. ej., "consultar arquitectura", "pregunta general", "finalizar conversación").
+3.  **Extracción de Parámetros:** Si la intención es "consultar arquitectura", el `HybridExtractor` (`core/ingestion/hybrid_extractor.js`) analiza el mensaje para extraer parámetros clave como "costo", "escalabilidad" o "seguridad".
+4.  **Gestión del Estado de la Conversación:** Los parámetros extraídos se guardan en el estado de la conversación actual, gestionado por `ConversationManager` (`core/conversation/conversation_manager.js`).
+5.  **Evaluación y Respuesta:**
+    *   Si faltan parámetros por definir, el `Explainer` (`core/ingestion/explainer.js`) genera una pregunta para solicitar al usuario la información faltante.
+    *   Si se han recopilado suficientes parámetros, el `Evaluator` (`core/ingestion/evaluator.js`) entra en acción.
+    *   El `ResponseHandler` (`core/conversation/response_handler.js`) consolida los resultados y genera una respuesta final para el usuario.
+6.  **Ciclo de Conversación:** El ciclo se repite hasta que el usuario decide archivar la conversación, momento en el cual el historial se guarda y se inicia una nueva sesión.
 
-    subgraph "🧠 Core Logic"
-        CM[Conversation Manager<br/>Estado & Flujo]
-        IC[Intent Classifier<br/>Clasificación de Intención]
-        HE[Hybrid Extractor<br/>Extracción de Parámetros]
-        EV[Evaluator<br/>Scoring de Arquitecturas]
-        EX[Explainer<br/>Generación de Respuestas]
-        RH[Response Handler<br/>Evaluación & Respuesta]
-    end
-    
-    subgraph "💾 Data Layer"
-        DB[(SQLite Database<br/>Conversaciones)]
-        ARCH[architecture_params.json<br/>Matriz de Arquitecturas]
-        PARAM[param_rules.json<br/>Reglas de Extracción]
-        INTENT[intent_rules.json<br/>Reglas de Intención]
-    end
-    
-    subgraph "🤖 External Services"
-        LLM[Groq AI / LLM<br/>Gemma2-9B-IT]
-    end
-
-    UI --> API
-    UI --> HIST
-    API --> CM
-    API --> IC
-    API --> HE
-    API --> EV
-    API --> EX
-    API --> RH
-    
-    IC --> LLM
-    HE --> LLM
-    EX --> LLM
-
-    CM --> DB
-    EV --> ARCH
-    HE --> PARAM
-    IC --> INTENT
-    
-    HIST --> DB
-```
-
----
-
-## 🔄 Flujo de Procesamiento Conversacional
-
-El sistema mantiene un **estado conversacional persistente** donde cada interacción del usuario avanza hacia la recomendación final a través de fases bien definidas.
+### Diagrama de Flujo (Sequence Diagram)
 
 ```mermaid
 sequenceDiagram
     participant User
-    participant Router as API Router
-    participant CM as Conversation Manager
-    participant IC as Intent Classifier
-    participant HE as Hybrid Extractor
-    participant EV as Evaluator
-    participant EX as Explainer
-    participant DB as Database
-    participant LLM as Groq AI
+    participant Server
+    participant Orchestrator
+    participant IntentClassifier
+    participant HybridExtractor
+    participant Evaluator
+    participant ResponseHandler
 
-    User->>Router: Envía mensaje
-    Router->>CM: getOrCreateConversation(userId)
-    CM->>DB: Buscar conversación activa
-    DB-->>CM: Conversación o null
+    User->>Server: POST /archssistant (mensaje)
+    Server->>Orchestrator: processMessage(body)
+    Orchestrator->>IntentClassifier: classifyIntent(mensaje)
+    IntentClassifier-->>Orchestrator: Devuelve intención (ej: 'consultar_arquitectura')
     
-    alt No hay conversación activa
-        CM->>DB: createConversation(userId)
-        DB-->>CM: Nueva conversación creada
+    alt Intención es consultar arquitectura
+        Orchestrator->>HybridExtractor: extractHybridParams(mensaje)
+        HybridExtractor-->>Orchestrator: Devuelve parámetros (ej: {escalabilidad: 'alto'})
+        Orchestrator->>Evaluator: evaluateArchitecture(parámetros)
+        Evaluator-->>Orchestrator: Devuelve arquitecturas ordenadas
+        Orchestrator->>ResponseHandler: evaluateAndRespond(conversación)
+        ResponseHandler-->>Orchestrator: Genera respuesta final
+    else Intención es pregunta general
+        Orchestrator->>ResponseHandler: answerGeneralQuestion(mensaje)
+        ResponseHandler-->>Orchestrator: Genera respuesta con información
     end
-    
-    CM-->>Router: Estado de conversación actual
 
-    Router->>IC: classifyIntent(mensaje)
-    IC->>LLM: Análisis semántico de intención
-    IC-->>Router: Intención clasificada
-    
-    alt Intención: "pregunta_general"
-        Router->>EX: answerGeneralQuestion()
-        EX->>LLM: Consulta conocimiento general
-        EX-->>Router: Respuesta educativa
-        Router-->>User: Respuesta directa
-    end
-    
-    alt Intención: "archivar"
-        Router->>CM: archiveCurrentConversation()
-        CM->>DB: Marcar conversación como inactiva
-        Router->>CM: getOrCreateConversation() [nueva]
-        Router-->>User: "Conversación archivada, ¿en qué puedo ayudarte?"
-    end
-    
-    alt Intención: "evaluar" o "forzar_evaluacion"
-        
-        alt No es forzar_evaluacion
-            Router->>HE: extractHybridParams(mensaje)
-            HE->>HE: extractLocalParams() [reglas]
-            HE->>LLM: extractLLMParams() [semántico]
-            HE-->>Router: Parámetros extraídos y fusionados
-            Router->>CM: updateConversationParams()
-        end
-        
-        Router->>Router: Verificar parámetros completos
-        
-        alt Faltan parámetros AND no es forzar_evaluacion
-            Router->>EX: generateParameterQuestion()
-            EX->>LLM: Generar pregunta contextual
-            EX-->>Router: Pregunta de clarificación
-            Router->>CM: Incrementar questionsAsked
-            Router-->>User: "¿Podrías contarme sobre [parámetros faltantes]?"
-        else Suficientes parámetros OR forzar_evaluacion
-            Router->>EV: evaluateArchitecture(params)
-            EV-->>Router: Arquitecturas rankeadas por score
-            Router->>EX: explainArchitecture()
-            EX->>LLM: Generar explicación justificada
-            EX-->>Router: Recomendación detallada
-            Router->>CM: Marcar estado como "completed"
-            Router-->>User: Evaluación final y recomendación
-        end
-    end
-    
-    Router->>CM: saveConversation()
-    CM->>DB: Persistir estado actualizado
+    Orchestrator-->>Server: Devuelve respuesta JSON
+    Server-->>User: Envía respuesta
 ```
 
----
+### Ciclo de Conversación (Conversation Loop)
 
-## 🗂️ Gestión de Conversaciones y Estados
-
-### Estados de Conversación
-- **`initial`**: Conversación recién creada, esperando primer input del usuario
-- **`evaluation_started`**: Usuario ha iniciado proceso de evaluación de arquitectura  
-- **`completed`**: Evaluación completada y recomendación entregada
-
-### Ciclo de Vida de Conversaciones
-- **Activa**: Solo una conversación por usuario puede estar activa (`isActive: 1`)
-- **Archivada**: Conversaciones completadas o archivadas manualmente (`isActive: 0`)
-- **Persistencia**: SQLite con campos: `id`, `userId`, `params`, `history`, `state`, `isActive`, `questionsAsked`, `createdAt`, `updatedAt`
-
-### Visualización de Conversaciones Archivadas
-- **Endpoint**: `GET /archssistant/history/:userId`
-- **Funcionalidad**: Retorna todas las conversaciones del usuario ordenadas por `updatedAt` DESC
-- **Interfaz**: Panel de historial en la UI que muestra:
-  - ID de conversación
-  - Estado final
-  - Parámetros capturados
-  - Timestamp de última actualización
-  - Historial completo de mensajes
-
----
-
-## 🧩 Componentes del Core Detallados
-
-### 1. **Router Principal** (`routes/archassistant.js`)
-**Función**: Orquestador central que coordina todo el flujo de procesamiento.
-
-```mermaid
-flowchart TD
-    A[Mensaje Usuario] --> B{Clasificar Intención}
-    B -->|pregunta_general| C[Respuesta Directa]
-    B -->|archivar| D[Archivar Conversación]
-    B -->|evaluar| E[Proceso de Evaluación]
-    
-    E --> F{¿Parámetros Completos?}
-    F -->|No| G[Generar Pregunta]
-    F -->|Sí o Forzar| H[Evaluación Final]
-    
-    G --> I[Guardar Estado]
-    H --> I
-    C --> I
-    D --> I
-```
-
-**Responsabilidades**:
-- Gestión de rutas HTTP y validación de entrada
-- Coordinación entre todos los módulos del core
-- Manejo de la lógica de flujo conversacional
-- Control de límites (3 preguntas máximo antes de sugerir evaluación)
-
-### 2. **Conversation Manager** (`core/conversation_manager.js`)
-**Función**: Gestor del ciclo de vida y estado de las conversaciones.
-
-```mermaid
-graph LR
-    A[Nueva Conversación] --> B[Estado: initial]
-    B --> C[Estado: evaluation_started]
-    C --> D[Estado: completed]
-    D --> E[Archivado]
-    E --> A
-```
-
-**Métodos Principales**:
-- `getOrCreateConversation(userId)`: Obtiene conversación activa o crea nueva
-- `saveConversation(conversation)`: Persiste estado en base de datos
-- `updateConversationParams(conversation, newParams)`: Actualiza parámetros extraídos
-- `archiveCurrentConversation(userId)`: Archiva conversación activa
-
-**Estructura de Conversación**:
-```javascript
-{
-  id: "uuid",
-  userId: "string",
-  params: { escalabilidad: "alto", costo: "bajo", ... },
-  history: [{ role: "user|assistant", content: "mensaje" }],
-  state: "initial|evaluation_started|completed",
-  isActive: boolean,
-  questionsAsked: number,
-  createdAt: "timestamp",
-  updatedAt: "timestamp"
-}
-```
-
-### 3. **Intent Classifier** (`core/intent_classifier.js`)
-**Función**: Clasificación híbrida de intención del usuario (LLM + Reglas).
-
-**Intenciones Soportadas**:
-- `evaluar`: Usuario quiere recomendación de arquitectura
-- `forzar_evaluacion`: Usuario insiste en evaluación con datos actuales
-- `pregunta_general`: Consulta educativa sobre arquitectura
-- `archivar`: Usuario quiere terminar conversación actual
-
-**Algoritmo**:
-1. **LLM Primary**: Uso de Groq/Gemma2-9B-IT para análisis semántico
-2. **Regex Fallback**: Sistema de reglas predefinidas desde `intent_rules.json`
-
-**Estructura de Reglas**:
-```json
-{
-  "evaluar": [
-    {
-      "type": "any",
-      "patterns": ["(necesito|busco|quiero|arquitectura para)"]
-    }
-  ]
-}
-```
-
-### 4. **Hybrid Extractor** (`core/hybrid_extractor.js`)
-**Función**: Extracción dual de parámetros arquitectónicos.
+El siguiente diagrama muestra el ciclo completo que utiliza el `ConversationOrchestrator` para procesar cada mensaje del usuario, mostrando específicamente cómo se repite este proceso a lo largo de una conversación.
 
 ```mermaid
 graph TD
-    A[Mensaje Usuario] --> B[Extracción Local]
-    A --> C[Extracción LLM]
-    B --> D[Fusión de Resultados]
-    C --> D
-    D --> E[Parámetros Finales]
+    Start([Inicio]) --> A[Usuario envía mensaje]
+    A --> B[ConversationOrchestrator recibe mensaje]
+    B --> C[Clasificar Intención]
+    
+    C --> D{Tipo de intención?}
+    D -->|Consultar Arquitectura| E[Extraer Parámetros]
+    D -->|Pregunta General| K[Responder Pregunta General]
+    D -->|Archivar| L[Archivar Conversación]
+    
+    E --> F[Actualizar estado de conversación]
+    F --> G{Suficientes parámetros?}
+    G -->|No| H[Generar pregunta sobre parámetro faltante]
+    G -->|Sí| I[Evaluar arquitecturas]
+    
+    I --> J[Generar respuesta con recomendaciones]
+    H --> M[Enviar respuesta al usuario]
+    J --> M
+    K --> M
+    L --> N[Crear nueva conversación]
+    N --> M
+    
+    M --> O[Usuario lee respuesta]
+    O --> P{Usuario satisfecho?}
+    P -->|No| A
+    P -->|Sí| End([Fin])
 ```
 
-**Parámetros Extraídos**:
-- `escalabilidad`: bajo(1) | medio(2) | alto(3)
-- `costo`: bajo(1) | medio(2) | alto(3)
-- `seguridad`: bajo(1) | medio(2) | alto(3)
-- `complejidad`: bajo(1) | medio(2) | alto(3)
-- `experiencia`: bajo(1) | medio(2) | alto(3)
-- `mantenibilidad`: bajo(1) | medio(2) | alto(3)
+Este diagrama ilustra claramente cómo el sistema mantiene un ciclo continuo de:
+1. **Clasificación** de la intención del usuario
+2. **Extracción** de parámetros relevantes
+3. **Evaluación** de las opciones de arquitectura
+4. **Respuesta** generada para el usuario
 
-**Algoritmo de Fusión**:
-1. **Local**: Matching por palabras clave con `param_rules.json`
-2. **LLM**: Análisis semántico contextual con Groq
-3. **Merge**: Prioridad a LLM, fallback a local
+Y cómo el sistema vuelve al inicio del ciclo cada vez que el usuario proporciona nueva información, manteniendo así una conversación fluida e iterativa.
 
-### 5. **Evaluator** (`core/evaluator.js`)
-**Función**: Motor de scoring y ranking de arquitecturas.
+## Arquitectura del Sistema
 
-**Algoritmo de Evaluación**:
-```javascript
-// Distancia vectorial normalizada
-score = 1 - (distanciaPromedio / 2)
-```
-
-**Matriz de Arquitecturas** (`architecture_params.json`):
-```json
-{
-  "name": "Microservicios",
-  "escalabilidad": 3,
-  "complejidad": 3,
-  "experiencia": 2,
-  "costo": 1,
-  "mantenibilidad": 2,
-  "seguridad": 2
-}
-```
-
-**Arquitecturas Soportadas**:
-- Monolítica, Layered, Hexagonal, Microkernel
-- Service-Based, Microservicios, Event-Driven
-- Space-Based, Orchestrator-Based, Microservices
-
-### 6. **Explainer** (`core/explainer.js`)
-**Función**: Generación de explicaciones y preguntas contextuales.
-
-**Funcionalidades**:
-- `explainArchitecture()`: Justificación detallada basada en libros de referencia
-- `generateParameterQuestion()`: Preguntas inteligentes para parámetros faltantes
-- `answerGeneralQuestion()`: Respuestas educativas sobre arquitectura
-
-**Formato de Respuesta**:
-```
-✅ Arquitectura sugerida: {nombre}
-📌 Parámetros relevantes: {lista}
-➕ Ventajas: {justificación}
-➖ Limitaciones: {desventajas}
-📚 Justificación técnica: {referencia a libros}
-💬 Conclusión: {recomendación final}
-```
-
-### 7. **Response Handler** (`core/response_handler.js`)
-**Función**: Coordinador final de evaluación y respuesta.
-
-**Proceso**:
-1. Ejecuta evaluación de arquitecturas
-2. Obtiene arquitectura principal y fallback
-3. Genera explicación detallada
-4. Formatea respuesta con scores y justificación
-
-### 8. **Database Layer** (`db/database.js`)
-**Función**: Abstracción de persistencia con SQLite.
-
-**Operaciones Principales**:
-- `initializeDatabase()`: Setup inicial y migraciones
-- `createConversation()`: Nueva conversación (archiva anteriores)
-- `getActiveConversation()`: Conversación activa del usuario
-- `getConversations()`: Historial completo del usuario
-- `archiveConversation()` / `unarchiveConversation()`: Gestión de archivado
-
-**Schema SQLite**:
-```sql
-CREATE TABLE conversations (
-  id TEXT PRIMARY KEY,
-  userId TEXT NOT NULL,
-  params TEXT,           -- JSON serializado
-  history TEXT,          -- JSON serializado  
-  state TEXT,
-  isActive INTEGER,      -- 0/1 boolean
-  questionsAsked INTEGER,
-  createdAt DATETIME,
-  updatedAt DATETIME
-);
-```
-
----
-
-## � Sistema de Parámetros y Scoring
-
-### Matriz de Parámetros Arquitectónicos
-
-El sistema evalúa **6 parámetros clave** que caracterizan cada arquitectura en una escala de 1-3:
-
-| Parámetro | Descripción | Escala |
-|-----------|-------------|---------|
-| **Escalabilidad** | Capacidad de manejar aumento de carga/usuarios | 1=Baja, 2=Media, 3=Alta |
-| **Costo** | Costo de implementación y operación | 1=Alto, 2=Medio, 3=Bajo |
-| **Seguridad** | Nivel de protección y control de acceso | 1=Básica, 2=Media, 3=Alta |
-| **Complejidad** | Dificultad de implementación y comprensión | 1=Simple, 2=Media, 3=Compleja |
-| **Experiencia** | Nivel de experiencia requerido del equipo | 1=Avanzada, 2=Media, 3=Básica |
-| **Mantenibilidad** | Facilidad de mantenimiento a largo plazo | 1=Difícil, 2=Media, 3=Fácil |
-
-### Algoritmo de Scoring
-
-**Fórmula de Distancia Vectorial**:
-```javascript
-// Para cada arquitectura
-score = 1 - (distanciaPromedio / rangoMaximo)
-
-// Donde:
-distancia = |valorUsuario - valorArquitectura| / 2
-distanciaPromedio = suma(distancias) / parametrosEvaluados
-```
-
-**Ejemplo Práctico**:
-```javascript
-// Usuario requiere: escalabilidad=alto(3), costo=bajo(3)
-// Microservicios: escalabilidad=3, costo=1
-
-distanciaEscalabilidad = |3-3| / 2 = 0.0
-distanciaCosto = |3-1| / 2 = 1.0
-distanciaPromedio = (0.0 + 1.0) / 2 = 0.5
-score = 1 - 0.5 = 0.5 (50% match)
-```
-
-### Extracción de Parámetros
-
-**Método Híbrido** (Local + LLM):
-
-1. **Extracción Local** (`param_rules.json`):
-```json
-{
-  "escalabilidad": {
-    "alto": ["muy escalable", "millones de usuarios", "alta carga"],
-    "medio": ["escalable", "carga media"],
-    "bajo": ["pocos usuarios", "sin escalamiento"]
-  }
-}
-```
-
-2. **Extracción LLM** (Semántica):
-```javascript
-systemPrompt = `
-Analiza y extrae parámetros arquitectónicos:
-- escalabilidad, costo, seguridad, complejidad, experiencia, mantenibilidad
-- Valores: "alto", "medio", "bajo", "desconocido"
-- Respuesta: solo JSON válido
-`
-```
-
-3. **Fusión**: `resultado = { ...local, ...llm }` (prioridad a LLM)
-
----
-
-## 🔍 Sistema de Intenciones
-
-### Clasificación de Intenciones
-
-**Método Híbrido** (LLM + Regex):
-
-| Intención | Descripción | Ejemplos |
-|-----------|-------------|----------|
-| `evaluar` | Solicitud de recomendación arquitectónica | "necesito una arquitectura", "mi app tendrá mucho tráfico" |
-| `forzar_evaluacion` | Insistir en evaluación con datos actuales | "evalúa con lo que tienes", "dame respuesta ya" |
-| `pregunta_general` | Consulta educativa sobre arquitectura | "¿qué es escalabilidad?", "microservicios vs monolítico" |
-| `archivar` | Terminar conversación y empezar nueva | "archivar conversación", "empezar de nuevo" |
-
-### Flujo de Decisión de Intenciones
+El sistema está diseñado con una clara separación de responsabilidades, donde cada módulo se encarga de una tarea específica.
 
 ```mermaid
-flowchart TD
-    A[Mensaje Usuario] --> B[LLM Classification]
-    B --> C{¿Intención Válida?}
-    C -->|Sí| D[Retornar Intención]
-    C -->|No| E[Fallback Regex]
-    E --> F[Reglas JSON]
-    F --> G[Intención Final]
+graph TD
+    A[Usuario] --> B[Servidor Express]
+    B --> C[Router]
+    C --> D[ConversationOrchestrator]
+
+    subgraph Principales
+        D --> E[Intent Classifier]
+        D --> F[Hybrid Extractor]
+        D --> G[Conversation Manager]
+        D --> H[Response Handler]
+        H --> K[Evaluator]
+    end
+    
+    subgraph Datos
+        I[Params Arquitectura]
+        J[Database]
+    end
+
+    K --> I
+    F --> I
+    G --> J
 ```
 
----
+## Búsqueda por Similitud Vectorial Basada en Distancia
 
-## 🏛️ Arquitecturas Soportadas
+El corazón de la recomendación de arquitecturas es el módulo `Evaluator`, que utiliza un método de similitud vectorial para encontrar la mejor opción. Este enfoque no depende de IA generativa, sino de un cálculo matemático preciso.
 
-### Catálogo de Arquitecturas
+### ¿Cómo funciona?
 
-El sistema evalúa **10 patrones arquitectónicos** principales:
+1.  **Vectorización:** Tanto la consulta del usuario como las arquitecturas en la base de conocimiento se convierten en "vectores". Un vector es simplemente una lista de números que representa características. En este caso, los parámetros como `costo`, `escalabilidad` y `seguridad` se mapean a valores numéricos:
+    *   `bajo` -> `1`
+    *   `medio` -> `2`
+    *   `alto` -> `3`
 
-| Arquitectura | Escalabilidad | Complejidad | Costo | Casos de Uso Típicos |
-|--------------|---------------|-------------|-------|---------------------|
-| **Monolítica** | 1 (Baja) | 1 (Simple) | 3 (Bajo) | Startups, MVPs, equipos pequeños |
-| **Layered** | 2 (Media) | 2 (Media) | 2 (Medio) | Aplicaciones empresariales tradicionales |
-| **Hexagonal** | 2 (Media) | 2 (Media) | 2 (Medio) | DDD, testing extensivo |
-| **Microkernel** | 2 (Media) | 2 (Media) | 2 (Medio) | Sistemas con plugins/extensiones |
-| **Service-Based** | 3 (Alta) | 2 (Media) | 2 (Medio) | SOA moderno, integración B2B |
-| **Microservicios** | 3 (Alta) | 3 (Compleja) | 1 (Alto) | Empresas grandes, equipos distribuidos |
-| **Event-Driven** | 3 (Alta) | 3 (Compleja) | 1 (Alto) | Sistemas reactivos, IoT |
-| **Space-Based** | 3 (Alta) | 3 (Compleja) | 1 (Alto) | Alta concurrencia, gaming |
-| **Orchestrator-Based** | 3 (Alta) | 3 (Compleja) | 1 (Alto) | Workflows complejos, BPM |
-| **Pipeline** | 2 (Media) | 2 (Media) | 2 (Medio) | Procesamiento de datos, ETL |
+2.  **Cálculo de Distancia:** Para cada arquitectura, se calcula la "distancia" entre su vector y el vector del usuario. La distancia mide qué tan diferentes son los valores de cada parámetro. La fórmula utilizada es la distancia normalizada:
 
-### Proceso de Recomendación
+    `distancia = |valor_usuario - valor_arquitectura| / 2`
 
-1. **Scoring**: Cálculo de similitud para cada arquitectura
-2. **Ranking**: Ordenamiento por score descendente  
-3. **Validación**: Verificación de justificación en libros de referencia
-4. **Fallback**: Arquitectura alternativa si la primera no tiene soporte
-5. **Explicación**: Generación de recomendación detallada con pros/contras
+    El `/ 2` normaliza el resultado a un rango entre 0 (coincidencia perfecta) y 1 (máxima diferencia).
 
----
+3.  **Puntuación de Similitud (Score):** La puntuación final se calcula como el inverso de la distancia promedio.
 
-## 💻 Configuración y Requisitos
+    `score = 1 - (suma_distancias / numero_parametros)`
 
-### Requisitos del Sistema
-- **Node.js**: 20+ 
-- **Base de Datos**: SQLite (archivo local)
-- **AI Service**: Groq API con modelo Gemma2-9B-IT
+    Un `score` de `1` significa una coincidencia perfecta, mientras que un `score` cercano a `0` indica una gran diferencia.
 
-### Variables de Entorno
-```env
-GROQ_API_KEY=tu_clave_groq_aqui
-AISERVER=https://api.groq.com/openai/v1
-PORT=3000
-```
+### Ejemplo Práctico
 
-### Instalación y Ejecución
-```bash
-# Instalación
-npm install
+Supongamos que el usuario busca una arquitectura con:
+*   **Escalabilidad:** `alto` (3)
+*   **Costo:** `bajo` (1)
 
-# Desarrollo
-npm run dev
+El **vector del usuario** es `{ escalabilidad: 3, costo: 1 }`.
 
-# Producción  
-npm start
+Ahora, comparemos dos arquitecturas de la base de conocimiento:
 
-# Testing
-npm test
-```
+**Arquitectura A: Monolito**
+*   `escalabilidad`: `bajo` (1)
+*   `costo`: `bajo` (1)
 
-### Estructura de Archivos Clave
+**Arquitectura B: Microservicios**
+*   `escalabilidad`: `alto` (3)
+*   `costo`: `alto` (3)
 
-| Archivo | Propósito |
-|---------|-----------|
-| `routes/archassistant.js` | Router principal y orquestador |
-| `core/conversation_manager.js` | Gestión de estado conversacional |
-| `core/intent_classifier.js` | Clasificación híbrida de intenciones |
-| `core/hybrid_extractor.js` | Extracción dual de parámetros |
-| `core/evaluator.js` | Motor de scoring arquitectónico |
-| `core/explainer.js` | Generación de explicaciones y preguntas |
-| `core/response_handler.js` | Coordinador de evaluación final |
-| `db/database.js` | Capa de persistencia SQLite |
-| `core/architecture_params.json` | Matriz de características arquitectónicas |
-| `core/param_rules.json` | Reglas de extracción local |
-| `core/intent_rules.json` | Patrones de clasificación de intenciones |
-| `public/index.html` | Interface web con estilo retro |
+**Cálculo para el Monolito:**
+*   Distancia de escalabilidad: `|3 - 1| / 2 = 1`
+*   Distancia de costo: `|1 - 1| / 2 = 0`
+*   Distancia total: `1 + 0 = 1`
+*   Distancia promedio: `1 / 2 = 0.5`
+*   **Score del Monolito:** `1 - 0.5 = 0.5`
 
----
+**Cálculo para Microservicios:**
+*   Distancia de escalabilidad: `|3 - 3| / 2 = 0`
+*   Distancia de costo: `|1 - 3| / 2 = 1`
+*   Distancia total: `0 + 1 = 1`
+*   Distancia promedio: `1 / 2 = 0.5`
+*   **Score de Microservicios:** `1 - 0.5 = 0.5`
 
-## 🚧 Limitaciones y Consideraciones
+En este caso, ambas arquitecturas tienen la misma puntuación porque cada una coincide perfectamente en un parámetro y difiere en el otro. El sistema las presentaría como igualmente viables según los criterios dados, probablemente pidiendo más información para desempatar.
 
-### Limitaciones Técnicas
-- **Dependencia de LLM**: Calidad de respuestas sujeta a disponibilidad y rendimiento de Groq API
-- **Cobertura de Reglas**: `param_rules.json` puede no capturar todos los matices del lenguaje natural
-- **Persistencia Local**: Base de datos SQLite local (no distribuida)
-- **Escalabilidad**: Diseñado para uso moderado, no para alta concurrencia
-- **Idioma**: Optimizado para español, soporte limitado en otros idiomas
-
-### Limitaciones de Alcance
-- **Solo Recomendaciones**: No genera código, diagramas o implementaciones
-- **Conocimiento Fijo**: Limitado a los dos libros de referencia especificados
-- **Contexto de Dominio**: No especializado en dominios específicos (salud, finanzas, etc.)
-- **Integración**: No se integra con herramientas de desarrollo o repositorios
-
-### Consideraciones de Uso
-- **Conversaciones Largas**: Límite sugerido de 3 preguntas antes de forzar evaluación
-- **Parámetros Mínimos**: Requiere al menos un parámetro identificado para evaluación
-- **Sesiones de Usuario**: Una conversación activa por usuario (las demás se archivan automáticamente)
-
----
-
-## 🧪 Ejemplos de Uso
-
-### Ejemplo 1: Evaluación Completa
-**Input del usuario:**  
-> "Somos un banco con alta necesidad de seguridad, datos sensibles y escalabilidad horizontal, pero tenemos presupuesto limitado."
-
-**Parámetros extraídos:**
-```json
-{
-  "seguridad": "alto",
-  "escalabilidad": "alto", 
-  "costo": "alto" // (presupuesto limitado = costo debe ser bajo, pero invertido)
-}
-```
-
-**Respuesta esperada:**
-```
-Basado en nuestra conversación, aquí tienes mi recomendación:
-
-Evaluación:
-Service-Based: 0.83
-Layered: 0.67
-Hexagonal: 0.58
-
-Recomendación:
-✅ Arquitectura sugerida: Service-Based
-📌 Parámetros relevantes: seguridad, escalabilidad, costo
-➕ Ventajas: Control granular de seguridad, escalabilidad por servicios, menor complejidad que microservicios
-➖ Limitaciones: Requiere governance de servicios, posible latencia entre servicios
-📚 Justificación técnica: Según "Fundamentals of Software Architecture", ideal para organizaciones que requieren balance entre escalabilidad y control
-💬 Conclusión: Perfecta para instituciones financieras que necesitan seguridad robusta con escalabilidad controlada
-```
-
-### Ejemplo 2: Pregunta General
-**Input del usuario:**  
-> "¿Cuál es la diferencia entre microservicios y arquitectura monolítica?"
-
-**Respuesta:**
-```
-Las principales diferencias son:
-
-**Arquitectura Monolítica:**
-- Todo el código en una sola aplicación deployable
-- Escalamiento vertical (toda la app)
-- Tecnología homogénea
-- Debugging más simple
-- Ideal para equipos pequeños y proyectos simples
-
-**Microservicios:**
-- Servicios independientes y deployables por separado
-- Escalamiento horizontal (servicios específicos)
-- Tecnologías heterogéneas permitidas
-- Debugging distribuido más complejo
-- Ideal para equipos grandes y sistemas complejos
-
-La elección depende del tamaño del equipo, complejidad del dominio y requisitos de escalabilidad.
-```
-
-### Ejemplo 3: Archivado de Conversación
-**Input del usuario:**  
-> "Archivar conversación"
-
-**Respuesta:**
-```
-¡Conversación archivada! He guardado todo nuestro historial y estoy listo para empezar una nueva conversación. ¿En qué puedo ayudarte ahora? 😊
-```
-
-### Ejemplo 4: Forzado de Evaluación
-**Input del usuario (después de 2-3 preguntas):**  
-> "Evalúa ya con lo que tienes"
-
-**Sistema:** Procede con evaluación usando parámetros conocidos, ignorando los faltantes.
-
----
-
-## 🔮 Roadmap Futuro
-
-### Mejoras a Corto Plazo
-- **UI/UX Mejorada**: Migración a React/Vue con componentes modernos
-- **Exportación**: Generar PDFs con recomendaciones y justificaciones
-- **Métricas**: Dashboard de uso y estadísticas de recomendaciones
-- **API Docs**: Documentación Swagger/OpenAPI
-
-### Mejoras a Mediano Plazo
-- **Integración Cloud**: Soporte para bases de datos distribuidas (PostgreSQL, MongoDB)
-- **Multiidioma**: Soporte completo para inglés y otros idiomas
-- **Especialización por Dominio**: Módulos específicos para banca, salud, e-commerce
-- **Comparación Visual**: Gráficos de radar para comparar arquitecturas
-
-### Mejoras a Largo Plazo
-- **Generación de Código**: Templates básicos para arquitecturas recomendadas
-- **Integración DevOps**: Conectores con Kubernetes, Docker, CI/CD
-- **Árbol de Decisión Interactivo**: Flujo visual para selección de arquitectura
-- **Machine Learning**: Modelo personalizado entrenado en patrones arquitectónicos
-
----
-
-## 📁 Archivos de Configuración
-
-### `architecture_params.json`
-Matriz de características para cada patrón arquitectónico con valores 1-3 para los 6 parámetros clave.
-
-### `param_rules.json`  
-Reglas de extracción local por palabras clave, organizadas por parámetro y nivel (alto/medio/bajo).
-
-### `intent_rules.json`
-Patrones regex para clasificación de intenciones como fallback del LLM.
-
-### Esquema de Base de Datos
-```sql
-CREATE TABLE conversations (
-    id TEXT PRIMARY KEY,
-    userId TEXT NOT NULL,
-    params TEXT,           -- JSON: parámetros extraídos
-    history TEXT,          -- JSON: historial de mensajes  
-    state TEXT,            -- Estado: initial|evaluation_started|completed
-    isActive INTEGER,      -- 0=archivada, 1=activa
-    questionsAsked INTEGER,-- Contador de preguntas realizadas
-    createdAt DATETIME,
-    updatedAt DATETIME
-);
-```
-
----
-
-## 🤝 Contribuciones
-
-Para contribuir al proyecto:
-
-1. **Fork** del repositorio
-2. **Crear branch** para la feature: `git checkout -b feature/nueva-funcionalidad`
-3. **Commit** cambios: `git commit -m 'Añadir nueva funcionalidad'`
-4. **Push** al branch: `git push origin feature/nueva-funcionalidad`
-5. **Crear Pull Request**
-
-### Guidelines de Desarrollo
-- Seguir convenciones de código existentes
-- Añadir tests para nuevas funcionalidades
-- Actualizar documentación según cambios
-- Mantener compatibilidad con los libros de referencia establecidos
-
----
-
-## 📄 Licencia
-
-Este proyecto está bajo la Licencia ISC. Ver el archivo `LICENSE` para más detalles.
-
----
-
-## 📞 Soporte
-
-Para preguntas, issues o sugerencias:
-- **GitHub Issues**: [Repositorio del proyecto]
-- **Documentación**: Este README y comentarios en el código
-- **Testing**: Ejecutar `npm test` para validar funcionalidad
-
-**¡Gracias por usar Archssistant! 🚀**
+Este método es rápido, eficiente y transparente, permitiendo al sistema justificar sus recomendaciones basándose en datos concretos.
