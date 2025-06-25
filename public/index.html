@@ -8,72 +8,8 @@
   <!-- BOOTSTRA.386 -->
   <link rel="stylesheet" href="https://kristopolous.github.io/BOOTSTRA.386/lib/bootstrap-3.3.5.min.css">
   <link rel="stylesheet" href="https://kristopolous.github.io/BOOTSTRA.386/css/bootstrap386.min.css">
+  <link rel="stylesheet" href="/css/style.css">
 
-  <style>
-    body {
-      background-color: #000080;
-      padding: 40px 10px;
-      color: #00ffff;
-      font-family: monospace;
-    }
-
-    .shell-box {
-      background: #c0c0c0;
-      border: 2px ridge #f0f0f0;
-      padding: 20px;
-      max-width: 700px;
-      margin: 0 auto 20px auto;
-      box-shadow: 0 0 0 3px #808080;
-    }
-
-    textarea, input.form-control {
-      width: 100%;
-      font-family: monospace;
-      font-size: 16px;
-      resize: none;
-      padding: 8px;
-      background-color: #fff;
-      border: 1px solid #000;
-      color: #000;
-    }
-
-    #response, #historyDisplay {
-      background-color: #000;
-      color: #00ff00;
-      padding: 20px;
-      border: 2px inset #00ffff;
-      font-family: monospace;
-      min-height: 200px;
-      max-height: 400px;
-      overflow-y: auto;
-      white-space: pre-wrap;
-      word-wrap: break-word;
-    }
-
-    .btn-dos {
-      font-size: 16px;
-      background-color: #000;
-      color: #00ffff;
-      border: 2px outset #00ffff;
-      width: 100%;
-      padding: 10px;
-    }
-
-    .btn-dos:hover {
-      background-color: #001080;
-    }
-
-    .title-box {
-      text-align: center;
-      margin-bottom: 25px;
-    }
-
-    .loading {
-      text-align: center;
-      color: yellow;
-      font-weight: bold;
-    }
-  </style>
 </head>
 <body class="bs386">
 
@@ -95,205 +31,40 @@
 
     <!-- Chat Interface Section (hidden by default) -->
     <div id="chatInterface" style="display:none;">
-      <div class="shell-box">
-        <label for="userInput">Escribe tu pregunta:</label>
-        <textarea id="userInput" rows="4" placeholder="Ej: ¿Qué arquitectura conviene si quiero bajo acoplamiento y alta escalabilidad?"></textarea>
-        <br><br>
-        <button class="btn btn-dos" onclick="askAI()">▶ Enviar</button>
-        <br><br>
-        <button class="btn btn-default" style="width: 48%; float: left;" onclick="showHistory()">Ver Historial</button>
-        <button class="btn btn-default" style="width: 48%; float: right;" onclick="returnToMain()">Salir</button>
-        <div style="clear:both;"></div>
-      </div>
+        <div class="tab-bar">
+            <button id="chatTabButton" class="tab-button" onclick="openTab(event, 'chatContent')">Chat Activo</button>
+            <button class="tab-button" onclick="openTab(event, 'historyContent')">Conversaciones Archivadas</button>
+            <button class="tab-button" onclick="returnToMain()">Salir</button>
+        </div>
 
-      <div id="response" class="container">
-        (esperando respuesta...)
-      </div>
-      <div id="loading" class="loading" style="display:none;">
-        🕐 Procesando...
-      </div>
-    </div>
+        <div id="chatContent" class="tab-content">
+            <div id="response">
+                (esperando respuesta...)
+            </div>
+            <div id="loading" class="loading" style="display:none;">
+                🕐 Procesando...
+            </div>
+            <div class="shell-box">
+                <label for="userInput">Escribe tu pregunta:</label>
+                <div class="input-container">
+                    <textarea id="userInput" rows="4" placeholder="Ej: ¿Qué arquitectura conviene si quiero bajo acoplamiento y alta escalabilidad?"></textarea>
+                    <button class="btn btn-dos" onclick="askAI()">▶ Enviar</button>
+                </div>
+                <br>
+                <button class="btn btn-default" onclick="archiveCurrentConversation()">Archivar Conversación Actual</button>
+            </div>
+        </div>
 
-    <!-- History Section (hidden by default) -->
-    <div id="historySection" style="display:none;">
-        <div class="shell-box">
-            <h2 id="historyTitle"></h2>
-            <div id="historyDisplay"></div>
-            <br>
-            <button class="btn btn-dos" onclick="returnToChat()">Volver al Chat</button>
+        <div id="historyContent" class="tab-content" style="display:none;">
+            <div class="shell-box">
+                <h2 id="historyTitle"></h2>
+                <div id="historyDisplay"></div>
+            </div>
         </div>
     </div>
   </div>
 
-  <script>
-    let currentUserId = null;
-
-    async function enterChat() {
-        const userNameInput = document.getElementById('initialUserName');
-        const user = userNameInput.value.trim();
-        if (!user) {
-            alert('Por favor, ingresa un nombre de usuario.');
-            return;
-        }
-        currentUserId = user;
-
-        document.getElementById('userLogin').style.display = 'none';
-        document.getElementById('chatInterface').style.display = 'block';
-        document.getElementById('historySection').style.display = 'none';
-        
-        const responseBox = document.getElementById('response');
-        responseBox.innerHTML = `Bienvenido, ${currentUserId}. Cargando tu sesión...`;
-
-        try {
-            const historyRes = await fetch(`/archssistant/history/${currentUserId}`);
-            if (!historyRes.ok) throw new Error('Error fetching history');
-            const historyData = await historyRes.json();
-            
-            const activeConversation = historyData.find(c => c.isActive);
-
-            if (activeConversation) {
-                const history = typeof activeConversation.history === 'string' 
-                    ? JSON.parse(activeConversation.history) 
-                    : activeConversation.history;
-
-                if (history && history.length > 0) {
-                    responseBox.innerHTML = ''; // Clear loading message
-                    history.forEach(item => {
-                        if (item.role === 'user') {
-                            appendMessage(responseBox, `Tú: ${item.content}`);
-                        } else if (item.role === 'assistant') {
-                            appendMessage(responseBox, `Archssistant: ${item.content}\n`);
-                        }
-                    });
-                } else {
-                    responseBox.innerHTML = `Bienvenido, ${currentUserId}. No hay una conversación activa. ¡Haz tu primera pregunta!`;
-                }
-            } else {
-                responseBox.innerHTML = `Bienvenido, ${currentUserId}. No hay una conversación activa. ¡Haz tu primera pregunta!`;
-            }
-
-        } catch (error) {
-            responseBox.textContent = '⚠️ Error al cargar la sesión. Puedes empezar una nueva conversación.';
-            console.error(error);
-        }
-    }
-
-    async function askAI() {
-      const userInput = document.getElementById('userInput');
-      const message = userInput.value.trim();
-      if (!message) return;
-
-      const responseBox = document.getElementById('response');
-      const loading = document.getElementById('loading');
-
-      appendMessage(responseBox, `Tú: ${message}`);
-      userInput.value = '';
-      loading.style.display = 'block';
-      responseBox.scrollTop = responseBox.scrollHeight;
-
-      try {
-        const res = await fetch('/archssistant', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ message: message, userId: currentUserId })
-        });
-
-        const data = await res.json();
-        appendMessage(responseBox, `Archssistant: ${data.reply || '(Sin respuesta)'}\n`);
-
-      } catch (error) {
-        appendMessage(responseBox, '⚠️ Error al contactar al servidor.\n');
-        console.error(error);
-      } finally {
-        loading.style.display = 'none';
-        responseBox.scrollTop = responseBox.scrollHeight;
-      }
-    }
-
-    async function showHistory() {
-        document.getElementById('chatInterface').style.display = 'none';
-        document.getElementById('historySection').style.display = 'block';
-        
-        const historyDisplay = document.getElementById('historyDisplay');
-        const historyTitle = document.getElementById('historyTitle');
-        
-        historyTitle.innerText = `Historial de: ${currentUserId}`;
-        historyDisplay.innerHTML = 'Cargando historial...';
-
-        try {
-            const res = await fetch(`/archssistant/history/${currentUserId}`);
-            const data = await res.json();
-
-            if (data.length === 0) {
-                historyDisplay.innerHTML = 'No hay conversaciones en el historial.';
-                return;
-            }
-
-            historyDisplay.innerHTML = '';
-            data.forEach(conv => {
-                const history = typeof conv.history === 'string' ? JSON.parse(conv.history) : conv.history;
-                const status = conv.isActive ? '(Activa)' : '(Archivada)';
-                const header = document.createElement('div');
-                header.innerHTML = `<strong>Conversación del ${new Date(conv.createdAt).toLocaleString()} ${status}</strong>`;
-                header.style.cursor = 'pointer';
-                header.style.backgroundColor = '#0000a0';
-                header.style.padding = '5px';
-                header.style.border = '1px solid white';
-                header.style.marginBottom = '5px';
-                
-                const content = document.createElement('div');
-                content.style.display = 'none';
-                content.style.padding = '10px';
-                content.style.border = '1px dashed #ccc';
-                
-                if (history && history.length > 0) {
-                    history.forEach(item => {
-                        if (item.role === 'user') {
-                            content.innerHTML += `<strong>Tú:</strong> ${item.content}<br>`;
-                        } else if (item.role === 'assistant') {
-                            content.innerHTML += `<strong>Archssistant:</strong> ${item.content}<br>---<br>`;
-                        }
-                    });
-                } else {
-                    content.innerHTML = 'Esta conversación está vacía.';
-                }
-
-                header.onclick = () => {
-                    content.style.display = content.style.display === 'none' ? 'block' : 'none';
-                };
-
-                historyDisplay.appendChild(header);
-                historyDisplay.appendChild(content);
-            });
-
-        } catch (error) {
-            historyDisplay.innerHTML = '⚠️ Error al cargar el historial.';
-            console.error(error);
-        }
-    }
-
-    function returnToChat() {
-        document.getElementById('historySection').style.display = 'none';
-        document.getElementById('chatInterface').style.display = 'block';
-    }
-
-    function returnToMain() {
-        currentUserId = null;
-        document.getElementById('chatInterface').style.display = 'none';
-        document.getElementById('historySection').style.display = 'none';
-        document.getElementById('userLogin').style.display = 'block';
-        document.getElementById('initialUserName').value = '';
-        document.getElementById('response').innerHTML = '(esperando respuesta...)';
-    }
-
-    function appendMessage(box, text) {
-        if (box.innerHTML === '(esperando respuesta...)' || box.innerHTML.includes('Bienvenido')) {
-            box.innerHTML = '';
-        }
-        box.innerHTML += text.replace(/\n/g, '<br>') + '<br>';
-    }
-
-  </script>
+  <script src="/js/main.js"></script>
 
 </body>
 </html>

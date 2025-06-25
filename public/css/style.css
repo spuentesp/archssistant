@@ -1,0 +1,107 @@
+body {
+      background-color: #000080;
+      padding: 40px 10px;
+      color: #00ffff;
+      font-family: monospace;
+    }
+
+    .shell-box {
+      background: #c0c0c0;
+      border: 2px ridge #f0f0f0;
+      padding: 20px;
+      margin-bottom: 20px;
+      box-shadow: 0 0 0 3px #808080;
+    }
+
+    textarea, input.form-control {
+      width: 100%;
+      font-family: monospace;
+      font-size: 16px;
+      resize: none;
+      padding: 8px;
+      background-color: #fff;
+      border: 1px solid #000;
+      color: #000;
+    }
+
+    #response, #historyDisplay {
+      background-color: #000;
+      color: #00ff00;
+      padding: 20px;
+      border: 2px inset #00ffff;
+      font-family: monospace;
+      min-height: 200px;
+      max-height: 400px;
+      overflow-y: auto;
+      white-space: pre-wrap;
+      word-wrap: break-word;
+    }
+
+    .input-container {
+      display: flex;
+      align-items: center;
+    }
+
+    .input-container textarea {
+      flex-grow: 1;
+      margin-right: 10px;
+    }
+
+    .input-container .btn-dos {
+      width: auto;
+      flex-shrink: 0;
+    }
+
+    .btn-dos {
+      font-size: 16px;
+      background-color: #000;
+      color: #00ffff;
+      border: 2px outset #00ffff;
+      width: 100%;
+      padding: 10px;
+    }
+
+    .btn-dos:hover {
+      background-color: #001080;
+    }
+
+    .title-box {
+      text-align: center;
+      margin-bottom: 25px;
+    }
+
+    .loading {
+      text-align: center;
+      color: yellow;
+      font-weight: bold;
+    }
+
+    .tab-bar {
+      overflow: hidden;
+      border: 1px solid #00ffff;
+      background-color: #000080;
+      margin-bottom: 10px;
+    }
+
+    .tab-button {
+      background-color: inherit;
+      float: left;
+      border: none;
+      outline: none;
+      cursor: pointer;
+      padding: 10px 12px;
+      transition: 0.3s;
+      font-size: 16px;
+      color: #00ffff;
+      font-family: monospace;
+      border-right: 1px solid #00ffff;
+    }
+
+    .tab-button:hover {
+      background-color: #001080;
+    }
+
+    .tab-button.active {
+      background-color: #c0c0c0;
+      color: #000;
+    }
