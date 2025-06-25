@@ -2,261 +2,192 @@ const request = require('supertest');
 const express = require('express');
 const bodyParser = require('body-parser');
 
-// Mock core modules
-jest.mock('../core/conversation_manager');
-jest.mock('../core/intent_classifier');
-jest.mock('../core/hybrid_extractor');
-jest.mock('../core/explainer');
-jest.mock('../core/response_handler');
+// Mock the orchestrator and database modules
+jest.mock('../core/orchestrator');
 jest.mock('../db/database');
 
-const archssistantRoute = require('../routes/archassistant');
-const { getOrCreateConversation, saveConversation, updateConversationParams, archiveCurrentConversation } = require('../core/conversation_manager');
-const { classifyIntent } = require('../core/intent_classifier');
-const { extractHybridParams } = require('../core/hybrid_extractor');
-const { generateParameterQuestion, answerGeneralQuestion } = require('../core/explainer');
-const { evaluateAndRespond } = require('../core/response_handler');
-const { getConversations } = require('../db/database');
-
-// Set up a minimal express app
-const app = express();
-app.use(bodyParser.json());
-app.use('/archssistant', archssistantRoute);
-
-// Set dummy env vars for tests
-process.env.GROQ_API_KEY = 'test-key';
-process.env.AISERVER = 'test-server';
-
-describe('Archssistant Routes', () => {
+describe('ArchAssistant Route with Orchestrator', () => {
+    let app;
+    let mockOrchestrator;
+    let archssistantRoute;
+    let ConversationOrchestrator;
+    let getConversations;
 
     beforeEach(() => {
-        // Clear all mocks before each test
-        jest.clearAllMocks();
+        jest.resetModules();
+
+        // Re-require the mocks after resetModules
+        ConversationOrchestrator = require('../core/orchestrator').ConversationOrchestrator;
+        getConversations = require('../db/database').getConversations;
+
+        // Force clear require cache for route and its dependencies
+        delete require.cache[require.resolve('../routes/archassistant')];
+        delete require.cache[require.resolve('../core/orchestrator')];
+        delete require.cache[require.resolve('../db/database')];
+
+        // Create a mock orchestrator instance
+        mockOrchestrator = {
+            processMessage: jest.fn(),
+        };
+
+        // Mock the ConversationOrchestrator constructor to return our mock instance
+        ConversationOrchestrator.mockImplementation(() => mockOrchestrator);
+
+        // Now require the route, which will use the mock implementation
+        archssistantRoute = require('../routes/archassistant');
+
+        app = express();
+        app.use(bodyParser.json());
+        app.use('/archassistant', archssistantRoute);
+
+        // Set up environment variables
+        process.env.GROQ_API_KEY = 'test-key';
+        process.env.AISERVER = 'test-server';
     });
 
-    describe('POST /archssistant', () => {
+    afterEach(() => {
+        jest.clearAllMocks();
+        // Restore environment variables to avoid side effects
+        delete process.env.GROQ_API_KEY;
+        delete process.env.AISERVER;
+    });
 
-        it('should return 400 if userId is not provided', async () => {
+    afterAll(() => {
+        jest.resetAllMocks();
+    });
+
+    describe('POST /', () => {
+        it('should process message successfully through orchestrator', async () => {
+            const userId = 'user123';
+            const message = '¿Qué es escalabilidad?';
+            
+            const mockResult = {
+                reply: 'La escalabilidad es la capacidad...',
+                conversationId: 'conv123',
+                state: 'initial'
+            };
+
+            mockOrchestrator.processMessage.mockResolvedValue(mockResult);
+
             const res = await request(app)
-                .post('/archssistant')
-                .send({ message: 'hello' });
+                .post('/archassistant')
+                .send({ message, userId });
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toEqual(mockResult);
+            expect(mockOrchestrator.processMessage).toHaveBeenCalledWith({ message, userId });
+        });
+
+        it('should handle missing userId error', async () => {
+            const message = '¿Qué es escalabilidad?';
+            
+            mockOrchestrator.processMessage.mockRejectedValue(new Error('Falta el ID de usuario.'));
+
+            const res = await request(app)
+                .post('/archassistant')
+                .send({ message });
+
             expect(res.statusCode).toEqual(400);
             expect(res.body.error).toBe('Falta el ID de usuario.');
         });
 
-        it('should handle general questions', async () => {
-            const userId = 'user-general';
-            const message = '¿Qué es la escalabilidad?';
-            const mockConversation = {
-                id: 'conv-general',
-                userId,
-                params: {},
-                history: [],
-                state: 'initial'
-            };
-
-            getOrCreateConversation.mockResolvedValue(mockConversation);
-            classifyIntent.mockResolvedValue('pregunta_general');
-            answerGeneralQuestion.mockResolvedValue('La escalabilidad es la capacidad...');
-            saveConversation.mockResolvedValue();
-
-            const res = await request(app)
-                .post('/archssistant')
-                .send({ message, userId });
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.reply).toBe('La escalabilidad es la capacidad...');
-            expect(res.body.conversationId).toBe('conv-general');
-            expect(classifyIntent).toHaveBeenCalledWith(message, 'test-key', 'test-server');
-            expect(answerGeneralQuestion).toHaveBeenCalledWith(message, 'test-key', 'test-server');
-            expect(saveConversation).toHaveBeenCalledWith(expect.objectContaining({
-                history: expect.arrayContaining([
-                    { role: 'user', content: message },
-                    { role: 'assistant', content: 'La escalabilidad es la capacidad...' }
-                ])
-            }));
-        });
-
-        it('should start architecture evaluation process', async () => {
-            const userId = 'user-eval';
-            const message = 'Necesito una arquitectura para mi aplicación web';
-            const mockConversation = {
-                id: 'conv-eval',
-                userId,
-                params: {},
-                history: [],
-                state: 'initial'
-            };
-
-            getOrCreateConversation.mockResolvedValue(mockConversation);
-            classifyIntent.mockResolvedValue('evaluar');
-            extractHybridParams.mockResolvedValue({ tipo_aplicacion: 'web' });
-            generateParameterQuestion.mockResolvedValue('¿Cuántos usuarios esperas que tenga tu aplicación?');
-            updateConversationParams.mockImplementation(() => {
-                mockConversation.params.tipo_aplicacion = 'web';
-            });
-            saveConversation.mockResolvedValue();
-
-            const res = await request(app)
-                .post('/archssistant')
-                .send({ message, userId });
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.reply).toBe('¿Cuántos usuarios esperas que tenga tu aplicación?');
-            expect(classifyIntent).toHaveBeenCalledWith(message, 'test-key', 'test-server');
-            expect(extractHybridParams).toHaveBeenCalledWith(message, 'test-key', 'test-server');
-            expect(updateConversationParams).toHaveBeenCalled();
-            expect(generateParameterQuestion).toHaveBeenCalled();
-        });
-
-        it('should complete evaluation when all parameters are gathered', async () => {
-            const userId = 'user-complete';
-            const message = 'Alta escalabilidad, bajo costo';
-            const mockConversation = {
-                id: 'conv-complete',
-                userId,
-                params: {
-                    escalabilidad: 'alta',
-                    costo: 'bajo',
-                    complejidad: 'media',
-                    experiencia: 'buena',
-                    seguridad: 'alta',
-                    mantenibilidad: 'alta' // Added missing param
-                },
-                history: [],
-                state: 'evaluation_started'
-            };
-
-            getOrCreateConversation.mockResolvedValue(mockConversation);
-            classifyIntent.mockResolvedValue('evaluar');
-            extractHybridParams.mockResolvedValue({});
-            evaluateAndRespond.mockResolvedValue('Recomiendo una arquitectura Service-Based...');
-            saveConversation.mockResolvedValue();
-
-            const res = await request(app)
-                .post('/archssistant')
-                .send({ message, userId });
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.reply).toBe('Recomiendo una arquitectura Service-Based...');
-            expect(evaluateAndRespond).toHaveBeenCalledWith(mockConversation, 'test-key', 'test-server');
-            expect(mockConversation.state).toBe('completed');
-        });
-
-        it('should archive current conversation and start new one when intent is "archivar"', async () => {
-            const userId = 'archive-user';
-            const message = 'archivar conversación';
-            const currentConversation = {
-                id: 'conv-to-archive',
-                userId,
-                params: { tipo_aplicacion: 'web' },
-                history: [
-                    { role: 'user', content: 'necesito una arquitectura' },
-                    { role: 'assistant', content: '¿Qué tipo de aplicación?' }
-                ],
-                state: 'evaluation_started'
-            };
-            const newConversation = {
-                id: 'new-conv',
-                userId,
-                params: {},
-                history: [],
-                state: 'initial'
-            };
-
-            // Mock conversation flow
-            getOrCreateConversation
-                .mockResolvedValueOnce(currentConversation)  // First call returns current conversation
-                .mockResolvedValueOnce(newConversation);     // Second call returns new conversation
-            classifyIntent.mockResolvedValue('archivar');
-            archiveCurrentConversation.mockResolvedValue(true);
-            saveConversation.mockResolvedValue();
-
-            const res = await request(app)
-                .post('/archssistant')
-                .send({ message, userId });
-
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.reply).toContain('¡Conversación archivada!');
-            expect(res.body.reply).toContain('estoy listo para empezar una nueva conversación');
-            expect(res.body.conversationId).toBe('new-conv');
-            expect(res.body.state).toBe('initial');
-            expect(res.body.archived).toBe(true);
+        it('should handle API settings missing error', async () => {
+            const userId = 'user123';
+            const message = '¿Qué es escalabilidad?';
             
-            // Verify archiving flow
-            expect(classifyIntent).toHaveBeenCalledWith(message, 'test-key', 'test-server');
-            expect(archiveCurrentConversation).toHaveBeenCalledWith(userId);
-            expect(getOrCreateConversation).toHaveBeenCalledTimes(2);
-            expect(saveConversation).toHaveBeenCalledWith(expect.objectContaining({
-                id: 'new-conv',
-                history: expect.arrayContaining([
-                    expect.objectContaining({
-                        role: 'assistant',
-                        content: expect.stringContaining('¡Conversación archivada!')
-                    })
-                ])
-            }));
-        });
-
-        it('should handle forced evaluation', async () => {
-            const userId = 'user-force';
-            const message = 'evalúa con lo que tienes';
-            const mockConversation = {
-                id: 'conv-force',
-                userId,
-                params: { escalabilidad: 'alta' }, // Only partial params
-                history: [],
-                state: 'evaluation_started'
-            };
-
-            getOrCreateConversation.mockResolvedValue(mockConversation);
-            classifyIntent.mockResolvedValue('forzar_evaluacion');
-            evaluateAndRespond.mockResolvedValue('Con la información disponible, recomiendo...');
-            saveConversation.mockResolvedValue();
+            mockOrchestrator.processMessage.mockRejectedValue(new Error('API settings are missing'));
 
             const res = await request(app)
-                .post('/archssistant')
+                .post('/archassistant')
                 .send({ message, userId });
 
-            expect(res.statusCode).toEqual(200);
-            expect(res.body.reply).toBe('Con la información disponible, recomiendo...');
-            expect(evaluateAndRespond).toHaveBeenCalledWith(mockConversation, 'test-key', 'test-server');
-            expect(extractHybridParams).not.toHaveBeenCalled(); // Should not extract params for forced evaluation
+            expect(res.statusCode).toEqual(500);
+            expect(res.body.error).toBe('Faltan configuraciones de API.');
         });
 
-        it('should handle errors gracefully', async () => {
-            getOrCreateConversation.mockRejectedValue(new Error('Internal DB Error'));
+        it('should handle general errors', async () => {
+            const userId = 'user123';
+            const message = '¿Qué es escalabilidad?';
+            
+            mockOrchestrator.processMessage.mockRejectedValue(new Error('Some other error'));
 
             const res = await request(app)
-                .post('/archssistant')
-                .send({ message: 'any', userId: 'error-user' });
+                .post('/archassistant')
+                .send({ message, userId });
 
             expect(res.statusCode).toEqual(500);
             expect(res.body.error).toBe('Error al procesar la solicitud.');
         });
-    });
 
-    describe('GET /archssistant/history/:userId', () => {
-        it('should retrieve user conversation history', async () => {
-            const userId = 'history-user';
-            const mockHistory = [
-                { id: 'c1', history: '[]', state: 'completed' },
-                { id: 'c2', history: '[]', state: 'ongoing' }
-            ];
-            getConversations.mockResolvedValue(mockHistory);
+        it('should handle evaluation flow through orchestrator', async () => {
+            const userId = 'user-eval';
+            const message = 'Necesito una arquitectura para mi aplicación web';
+            
+            const mockResult = {
+                reply: '¿Cuántos usuarios esperas que tenga tu aplicación?',
+                conversationId: 'conv-eval',
+                state: 'evaluation_started'
+            };
 
-            const res = await request(app).get(`/archssistant/history/${userId}`);
+            mockOrchestrator.processMessage.mockResolvedValue(mockResult);
+
+            const res = await request(app)
+                .post('/archassistant')
+                .send({ message, userId });
 
             expect(res.statusCode).toEqual(200);
-            expect(res.body).toEqual(mockHistory);
+            expect(res.body).toEqual(mockResult);
+            expect(mockOrchestrator.processMessage).toHaveBeenCalledWith({ message, userId });
+        });
+
+        it('should handle archival flow through orchestrator', async () => {
+            const userId = 'user-archive';
+            const message = 'archivar conversación';
+            
+            const mockResult = {
+                reply: '¡Conversación archivada! He guardado todo nuestro historial...',
+                conversationId: 'new-conv',
+                state: 'initial',
+                archived: true
+            };
+
+            mockOrchestrator.processMessage.mockResolvedValue(mockResult);
+
+            const res = await request(app)
+                .post('/archassistant')
+                .send({ message, userId });
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toEqual(mockResult);
+            expect(mockOrchestrator.processMessage).toHaveBeenCalledWith({ message, userId });
+        });
+    });
+
+    describe('GET /history/:userId', () => {
+        it('should return conversation history for user', async () => {
+            const userId = 'user123';
+            const mockConversations = [
+                { id: 'conv1', userId, history: [] },
+                { id: 'conv2', userId, history: [] }
+            ];
+
+            getConversations.mockResolvedValue(mockConversations);
+
+            const res = await request(app)
+                .get(`/archassistant/history/${userId}`);
+
+            expect(res.statusCode).toEqual(200);
+            expect(res.body).toEqual(mockConversations);
             expect(getConversations).toHaveBeenCalledWith(userId);
         });
 
-        it('should handle errors when fetching history', async () => {
-            const userId = 'history-error-user';
-            getConversations.mockRejectedValue(new Error('DB History Error'));
+        it('should handle errors when loading history', async () => {
+            const userId = 'user123';
+            
+            getConversations.mockRejectedValue(new Error('Database error'));
 
-            const res = await request(app).get(`/archssistant/history/${userId}`);
+            const res = await request(app)
+                .get(`/archassistant/history/${userId}`);
 
             expect(res.statusCode).toEqual(500);
             expect(res.body.error).toBe('Error al cargar el historial.');

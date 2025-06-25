@@ -114,8 +114,21 @@ async function extractHybridParams(message, apiKey, baseURL) {
         console.warn('[HybridExtractor] LLM extraction failed, relying on local params.', e.message);
     }
 
-    // 3. Merge results, prioritizing the LLM's deeper analysis.
-    const result = { ...localParams, ...llmParams };
+    // 3. Merge results, prioritizing the LLM's deeper analysis only if not 'desconocido'.
+    const result = {};
+    const allKeys = new Set([
+        ...Object.keys(localParams),
+        ...Object.keys(llmParams)
+    ]);
+    for (const key of allKeys) {
+        if (llmParams[key] && llmParams[key] !== 'desconocido') {
+            result[key] = llmParams[key];
+        } else if (localParams[key]) {
+            result[key] = localParams[key];
+        } else {
+            result[key] = llmParams[key] || 'desconocido';
+        }
+    }
 
     console.log('[HybridExtractor] Merged result:', result);
     return result;

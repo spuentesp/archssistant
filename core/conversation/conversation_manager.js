@@ -3,7 +3,7 @@ const {
     saveConversation: dbSaveConversation,
     getActiveConversation,
     archiveConversation,
-} = require('../db/database');
+} = require('../../db/database');
 
 function parseConversation(conversation) {
     if (conversation) {

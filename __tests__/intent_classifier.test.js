@@ -1,4 +1,4 @@
-const { classifyIntent } = require('../core/intent_classifier');
+const { classifyIntent } = require('../core/intent/intent_classifier');
 
 jest.mock('groq-sdk');
 const Groq = require('groq-sdk');

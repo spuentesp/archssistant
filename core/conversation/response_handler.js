@@ -1,5 +1,5 @@
-const { evaluateArchitecture } = require('./evaluator');
-const { explainArchitecture } = require('./explainer');
+const { evaluateArchitecture } = require('../ingestion/evaluator');
+const { explainArchitecture } = require('../ingestion/explainer');
 
 /**
  * Generates a response with the architecture evaluation.

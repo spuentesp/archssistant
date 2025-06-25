@@ -1,4 +1,4 @@
-const conversationManager = require('../core/conversation_manager');
+const conversationManager = require('../core/conversation/conversation_manager');
 const database = require('../db/database');
 
 // Mock the database module to avoid actual DB calls and control test data

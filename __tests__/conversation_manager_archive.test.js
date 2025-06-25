@@ -1,4 +1,4 @@
-const { archiveCurrentConversation } = require('../core/conversation_manager');
+const { archiveCurrentConversation } = require('../core/conversation/conversation_manager');
 const { getActiveConversation, archiveConversation } = require('../db/database');
 
 // Mock the database module
