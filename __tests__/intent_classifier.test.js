@@ -24,31 +24,31 @@ describe('Intent Classifier', () => {
         expect(Groq.prototype.chat.completions.create).toHaveBeenCalled();
     });
 
-    test('should classify intent as \'comparar\' using LLM', async () => {
+    test('should classify intent as \'pregunta_general\' using LLM', async () => {
         const mockCompletion = {
-            choices: [{ message: { content: 'comparar' } }]
+            choices: [{ message: { content: 'pregunta_general' } }]
         };
         Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
 
         const intent = await classifyIntent('diferencia entre monolítico y microservicios', 'fake_api_key', 'http://fake-server.com');
-        expect(intent).toBe('comparar');
+        expect(intent).toBe('pregunta_general');
     });
 
-    test('should classify intent as \'informar\' using LLM', async () => {
+    test('should classify intent as \'pregunta_general\' for knowledge questions using LLM', async () => {
         const mockCompletion = {
-            choices: [{ message: { content: 'informar' } }]
+            choices: [{ message: { content: 'pregunta_general' } }]
         };
         Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
 
         const intent = await classifyIntent('¿qué es la escalabilidad?', 'fake_api_key', 'http://fake-server.com');
-        expect(intent).toBe('informar');
+        expect(intent).toBe('pregunta_general');
     });
 
     test('should fall back to regex if LLM fails', async () => {
         Groq.prototype.chat.completions.create.mockRejectedValue(new Error('LLM Error'));
 
-        const intent = await classifyIntent('comparar monolítico vs microservicios', 'fake_api_key', 'http://fake-server.com');
-        expect(intent).toBe('comparar');
+        const intent = await classifyIntent('¿qué es la escalabilidad?', 'fake_api_key', 'http://fake-server.com');
+        expect(intent).toBe('pregunta_general');
     });
 
     test('should fall back to regex if LLM returns unexpected content', async () => {
@@ -59,5 +59,39 @@ describe('Intent Classifier', () => {
 
         const intent = await classifyIntent('necesito una arquitectura para un sistema de logística', 'fake_api_key', 'http://fake-server.com');
         expect(intent).toBe('evaluar');
+    });
+
+    test('should classify intent as \'archivar\' using LLM', async () => {
+        const mockCompletion = {
+            choices: [{ message: { content: 'archivar' } }]
+        };
+        Groq.prototype.chat.completions.create.mockResolvedValue(mockCompletion);
+
+        const intent = await classifyIntent('archivar conversación', 'fake_api_key', 'http://fake-server.com');
+        expect(intent).toBe('archivar');
+    });
+
+    test('should classify intent as \'archivar\' using regex fallback', async () => {
+        Groq.prototype.chat.completions.create.mockRejectedValue(new Error('LLM Error'));
+
+        const intent = await classifyIntent('empezar de nuevo', 'fake_api_key', 'http://fake-server.com');
+        expect(intent).toBe('archivar');
+    });
+
+    test('should classify intent as \'archivar\' for various archiving phrases', async () => {
+        Groq.prototype.chat.completions.create.mockRejectedValue(new Error('LLM Error'));
+
+        const archiveMessages = [
+            'nueva conversación',
+            'reset',
+            'terminar',
+            'guardar chat',
+            'reiniciar'
+        ];
+
+        for (const message of archiveMessages) {
+            const intent = await classifyIntent(message, 'fake_api_key', 'http://fake-server.com');
+            expect(intent).toBe('archivar');
+        }
     });
 });

@@ -112,15 +112,18 @@ function getConversation(conversationId) {
 }
 
 /**
- * Obtiene todas las conversaciones de un usuario (activas y archivadas).
+ * Obtiene todas las conversaciones de un usuario.
  * @param {string} userId - El ID del usuario.
- * @returns {Promise<Array>} Una lista de conversaciones.
+ * @returns {Promise<Array<Object>>} Una lista de conversaciones.
  */
 function getConversations(userId) {
     return new Promise((resolve, reject) => {
-        db.all('SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC', [userId], (err, rows) => {
+        const sql = `SELECT * FROM conversations WHERE userId = ? ORDER BY updatedAt DESC`;
+        db.all(sql, [userId], (err, rows) => {
             if (err) return reject(err);
-            resolve(rows.map(_parseRow));
+            // Mapear y parsear cada fila.
+            const parsedRows = rows.map(row => _parseRow(row));
+            resolve(parsedRows);
         });
     });
 }

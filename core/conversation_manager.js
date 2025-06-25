@@ -2,6 +2,7 @@ const {
     createConversation,
     saveConversation: dbSaveConversation,
     getActiveConversation,
+    archiveConversation,
 } = require('../db/database');
 
 function parseConversation(conversation) {
@@ -60,8 +61,30 @@ function updateConversationParams(conversation, newParams) {
     }
 }
 
+async function archiveCurrentConversation(userId) {
+    if (!userId) {
+        throw new Error('userId is required to archive a conversation.');
+    }
+
+    console.log(`[conversation_manager] Archiving current conversation for user ${userId}`);
+
+    // Obtener la conversación activa
+    const activeConversation = await getActiveConversation(userId);
+    
+    if (activeConversation) {
+        // Archivar la conversación actual
+        await archiveConversation(activeConversation.id);
+        console.log(`[conversation_manager] Archived conversation ${activeConversation.id} for user ${userId}`);
+        return true;
+    } else {
+        console.log(`[conversation_manager] No active conversation found to archive for user ${userId}`);
+        return false;
+    }
+}
+
 module.exports = {
     getOrCreateConversation,
     saveConversation,
     updateConversationParams,
+    archiveCurrentConversation,
 };

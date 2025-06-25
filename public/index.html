@@ -151,12 +151,23 @@
             
             const activeConversation = historyData.find(c => c.isActive);
 
-            if (activeConversation && activeConversation.conversation.fullHistory.length > 0) {
-                responseBox.innerHTML = ''; // Clear loading message
-                activeConversation.conversation.fullHistory.forEach(item => {
-                    appendMessage(responseBox, `Tú: ${item.question}`);
-                    appendMessage(responseBox, `Archssistant: ${item.answer}\n`);
-                });
+            if (activeConversation) {
+                const history = typeof activeConversation.history === 'string' 
+                    ? JSON.parse(activeConversation.history) 
+                    : activeConversation.history;
+
+                if (history && history.length > 0) {
+                    responseBox.innerHTML = ''; // Clear loading message
+                    history.forEach(item => {
+                        if (item.role === 'user') {
+                            appendMessage(responseBox, `Tú: ${item.content}`);
+                        } else if (item.role === 'assistant') {
+                            appendMessage(responseBox, `Archssistant: ${item.content}\n`);
+                        }
+                    });
+                } else {
+                    responseBox.innerHTML = `Bienvenido, ${currentUserId}. No hay una conversación activa. ¡Haz tu primera pregunta!`;
+                }
             } else {
                 responseBox.innerHTML = `Bienvenido, ${currentUserId}. No hay una conversación activa. ¡Haz tu primera pregunta!`;
             }
@@ -220,6 +231,7 @@
 
             historyDisplay.innerHTML = '';
             data.forEach(conv => {
+                const history = typeof conv.history === 'string' ? JSON.parse(conv.history) : conv.history;
                 const status = conv.isActive ? '(Activa)' : '(Archivada)';
                 const header = document.createElement('div');
                 header.innerHTML = `<strong>Conversación del ${new Date(conv.createdAt).toLocaleString()} ${status}</strong>`;
@@ -234,10 +246,13 @@
                 content.style.padding = '10px';
                 content.style.border = '1px dashed #ccc';
                 
-                if (conv.conversation.fullHistory.length > 0) {
-                    conv.conversation.fullHistory.forEach(item => {
-                        content.innerHTML += `<strong>Tú:</strong> ${item.question}<br>`;
-                        content.innerHTML += `<strong>Archssistant:</strong> ${item.answer}<br>---<br>`;
+                if (history && history.length > 0) {
+                    history.forEach(item => {
+                        if (item.role === 'user') {
+                            content.innerHTML += `<strong>Tú:</strong> ${item.content}<br>`;
+                        } else if (item.role === 'assistant') {
+                            content.innerHTML += `<strong>Archssistant:</strong> ${item.content}<br>---<br>`;
+                        }
                     });
                 } else {
                     content.innerHTML = 'Esta conversación está vacía.';

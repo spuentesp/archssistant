@@ -7,15 +7,16 @@ class Conversation {
     this.userId = userId;
     this.history = [];
     this.params = {
-      scalability: 'unknown',
-      complexity: 'unknown',
-      experience: 'unknown',
-      cost: 'unknown',
-      maintainability: 'unknown',
-      security: 'unknown',
+      escalabilidad: 'unknown',
+      complejidad: 'unknown',
+      experiencia: 'unknown',
+      costo: 'unknown',
+      mantenibilidad: 'unknown',
+      seguridad: 'unknown',
     };
     this.intent = 'start';
     this.state = 'greeting';
+    this.suggestion_given = false;
   }
 }
 

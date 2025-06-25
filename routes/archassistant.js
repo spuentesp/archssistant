@@ -7,9 +7,8 @@ const path = require('path');
 const architectureDataPath = path.join(__dirname, '../core/architecture_params.json');
 const architectureData = JSON.parse(fs.readFileSync(architectureDataPath, 'utf-8'));
 const allParams = Object.keys(architectureData[0]).filter(key => key !== 'name');
-const MAX_QUESTIONS_BEFORE_SUGGESTION = allParams.length;
 
-const { getOrCreateConversation, saveConversation, updateConversationParams } = require('../core/conversation_manager');
+const { getOrCreateConversation, saveConversation, updateConversationParams, archiveCurrentConversation } = require('../core/conversation_manager');
 const { extractHybridParams } = require('../core/hybrid_extractor');
 const { generateParameterQuestion, answerGeneralQuestion } = require('../core/explainer');
 const { classifyIntent } = require('../core/intent_classifier');
@@ -47,7 +46,25 @@ router.post('/', async (req, res) => {
         return res.json({ reply, conversationId: conversation.id, state: conversation.state });
     }
 
-    if (intent === 'evaluar_arquitectura' || conversation.state === 'evaluation_started') {
+    if (intent === 'archivar') {
+        // Archivar la conversación actual
+        await archiveCurrentConversation(userId);
+        reply = "¡Conversación archivada! He guardado todo nuestro historial y estoy listo para empezar una nueva conversación. ¿En qué puedo ayudarte ahora? 😊";
+        
+        // Crear una nueva conversación para el próximo mensaje
+        const newConversation = await getOrCreateConversation(userId);
+        newConversation.history.push({ role: 'assistant', content: reply });
+        await saveConversation(newConversation);
+        
+        return res.json({ 
+            reply, 
+            conversationId: newConversation.id, 
+            state: newConversation.state,
+            archived: true 
+        });
+    }
+
+    if (intent === 'evaluar' || conversation.state === 'evaluation_started') {
         if (conversation.state !== 'evaluation_started') {
             conversation.state = 'evaluation_started';
         }
@@ -61,6 +78,7 @@ router.post('/', async (req, res) => {
         }
 
         const missingParams = allParams.filter(p => !conversation.params[p] || conversation.params[p] === 'desconocido');
+        const knownParams = allParams.filter(p => conversation.params[p] && conversation.params[p] !== 'desconocido');
 
         if (missingParams.length === 0 || intent === 'forzar_evaluacion') {
             if (intent === 'forzar_evaluacion') {
@@ -72,15 +90,18 @@ router.post('/', async (req, res) => {
             conversation.state = 'completed';
         } else {
             console.log(`[archassistant] Missing params: ${missingParams.join(', ')}. Asking for more info.`);
-            
-            if (conversation.questionsAsked && conversation.questionsAsked >= MAX_QUESTIONS_BEFORE_SUGGESTION) {
-                const suggestion = "Veo que ya hemos cubierto varios puntos. ¿Quieres que evalúe una arquitectura con la información que tenemos, o prefieres que sigamos afinando con más preguntas? Puedes responder \"evalúa ya\" o seguir la conversación.";
+            const questionsAsked = conversation.questionsAsked || 0;
+
+            // Sugerir evaluación si se han hecho 3 preguntas o se conocen 3 parámetros
+            if ((questionsAsked >= 3 || knownParams.length >= 3) && !conversation.suggestion_given) {
+                const suggestion = "Veo que ya tenemos suficiente información para una evaluación preliminar. Si quieres, puedo darte una recomendación ahora, o podemos seguir profundizando. Puedes decir \"evalúa ya\" cuando quieras.";
                 const nextQuestion = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
                 reply = `${suggestion}\n\n${nextQuestion}`;
+                conversation.suggestion_given = true; // Marcar que la sugerencia ya se dio
             } else {
                 reply = await generateParameterQuestion(missingParams, conversation.history, apiKey, baseURL);
             }
-            conversation.questionsAsked = (conversation.questionsAsked || 0) + 1;
+            conversation.questionsAsked = questionsAsked + 1;
         }
     } else {
         console.log('[archassistant] Unclear intent, assuming evaluation. Asking for initial parameters.');

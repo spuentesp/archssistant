@@ -21,5 +21,19 @@
                 "(qué es|explica|dime|define|significa|cómo funciona|cuáles son|ventajas|desventajas|diferencia|similitud|cuál.*mejor|versus|vs|compar(a|ación))"
             ]
         }
+    ],
+    "archivar": [
+        {
+            "type": "any",
+            "patterns": [
+                "(archivar|archivo|guarda|guardar|termina|terminar|finaliza|finalizar|nueva conversación|nueva conversacion|empezar de nuevo|comenzar de nuevo|limpiar|reset|reiniciar)"
+            ]
+        },
+        {
+            "type": "any",
+            "patterns": [
+                "(conversación|conversacion|chat|dialogo|diálogo|historial|sesión|sesion)"
+            ]
+        }
     ]
 }

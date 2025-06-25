@@ -50,6 +50,7 @@ Tu tarea es clasificar la intención del usuario en una de las siguientes catego
 - "evaluar": El usuario quiere una recomendación de arquitectura de software, o está describiendo su proyecto. Ejemplos: "necesito una arquitectura para una red social", "mi app tendrá mucho tráfico de usuarios", "busco algo con alta disponibilidad".
 - "forzar_evaluacion": El usuario, después de que se le pidieran más datos, insiste en obtener una respuesta con la información que ya ha proporcionado. Ejemplos: "evalúa con lo que tienes", "no tengo más datos, solo responde", "dame la respuesta ya", "continúa", "así está bien".
 - "pregunta_general": El usuario está haciendo una pregunta de conocimiento general sobre arquitectura de software. Ejemplos: "¿qué es la escalabilidad?", "¿me explicas qué es un service mesh?", "¿cuál es la diferencia entre microservicios y monolítico?", "monolítico vs microservicios".
+- "archivar": El usuario quiere archivar la conversación actual y empezar una nueva. Ejemplos: "archivar conversación", "guardar chat", "empezar de nuevo", "nueva conversación", "terminar", "reset".
 
 Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta de la intención. Si la consulta no tiene sentido o no puedes clasificarla, responde 'no puedo clasificar la consulta'.
 `;
@@ -65,7 +66,7 @@ Analiza la siguiente consulta del usuario y responde únicamente con la etiqueta
 
         let intent = completion.choices[0]?.message?.content.trim().toLowerCase().replace(/"/g, '');
 
-        if (['evaluar', 'pregunta_general', 'forzar_evaluacion'].includes(intent)) {
+        if (['evaluar', 'pregunta_general', 'forzar_evaluacion', 'archivar'].includes(intent)) {
             console.log(`[IntentClassifier] LLM classified intent as: ${intent}`);
             return intent;
         }

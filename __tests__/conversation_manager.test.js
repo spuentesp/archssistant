@@ -3,12 +3,10 @@ const database = require('../db/database');
 
 // Mock the database module to avoid actual DB calls and control test data
 jest.mock('../db/database', () => ({
-    getConversation: jest.fn(),
     createConversation: jest.fn(),
     saveConversation: jest.fn(),
+    getActiveConversation: jest.fn(),
     archiveConversation: jest.fn(),
-    getActiveConversationForUser: jest.fn(),
-    archiveAllConversationsForUserExceptOne: jest.fn(),
 }));
 
 describe('Conversation Manager', () => {
@@ -20,137 +18,206 @@ describe('Conversation Manager', () => {
 
     describe('getOrCreateConversation', () => {
         const userId = 'test-user';
-        const existingConv = { id: 'conv1', userId, params: {}, history: [], state: 'ongoing', isActive: true };
-        const newConv = { id: 'conv2', userId, params: {}, history: [], state: 'initial', isActive: true };
+        const existingConv = { 
+            id: 'conv1', 
+            userId, 
+            params: '{}', 
+            history: '[]', 
+            state: 'ongoing', 
+            isActive: true 
+        };
+        const newConv = { 
+            id: 'conv2', 
+            userId, 
+            params: {}, 
+            history: [], 
+            state: 'initial', 
+            isActive: true 
+        };
 
-        test('should retrieve an existing, active conversation by ID and archive others', async () => {
-            database.getConversation.mockResolvedValue(existingConv);
-
-            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
-
-            expect(database.getConversation).toHaveBeenCalledWith('conv1');
-            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, 'conv1');
-            expect(database.getActiveConversationForUser).not.toHaveBeenCalled();
-            expect(database.createConversation).not.toHaveBeenCalled();
-            expect(conversation).toEqual(existingConv);
-        });
-
-        test('should not retrieve a conversation if the ID is for another user and should find the last active one', async () => {
-            database.getConversation.mockResolvedValue({ ...existingConv, userId: 'another-user' });
-            database.getActiveConversationForUser.mockResolvedValue(existingConv); // Find the correct active one
-
-            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
-
-            expect(database.getConversation).toHaveBeenCalledWith('conv1');
-            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
-            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
-            expect(database.createConversation).not.toHaveBeenCalled();
-            expect(conversation).toEqual(existingConv);
-        });
-
-        test('should retrieve the last active conversation and archive others if no ID is provided', async () => {
-            database.getActiveConversationForUser.mockResolvedValue(existingConv);
+        test('should retrieve an existing active conversation and parse it', async () => {
+            database.getActiveConversation.mockResolvedValue(existingConv);
 
             const conversation = await conversationManager.getOrCreateConversation(userId);
 
-            expect(database.getConversation).not.toHaveBeenCalled();
-            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
-            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
+            expect(database.getActiveConversation).toHaveBeenCalledWith(userId);
             expect(database.createConversation).not.toHaveBeenCalled();
-            expect(conversation).toEqual(existingConv);
+            expect(conversation.params).toEqual({}); // Should be parsed from string
+            expect(conversation.history).toEqual([]); // Should be parsed from string
+            expect(conversation.id).toBe('conv1');
         });
 
         test('should create a new conversation if no active one exists', async () => {
-            database.getActiveConversationForUser.mockResolvedValue(null);
+            database.getActiveConversation.mockResolvedValue(null);
             database.createConversation.mockResolvedValue(newConv);
 
             const conversation = await conversationManager.getOrCreateConversation(userId);
 
-            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
-            expect(database.archiveAllConversationsForUserExceptOne).not.toHaveBeenCalled();
+            expect(database.getActiveConversation).toHaveBeenCalledWith(userId);
             expect(database.createConversation).toHaveBeenCalledWith(userId);
             expect(conversation).toEqual(newConv);
         });
 
-        test('should find last active conversation if the one found by ID is inactive', async () => {
-            const inactiveConv = { ...existingConv, isActive: false };
-            database.getConversation.mockResolvedValue(inactiveConv);
-            database.getActiveConversationForUser.mockResolvedValue(existingConv); // Find the correct active one
-
-            const conversation = await conversationManager.getOrCreateConversation(userId, 'conv1');
-
-            expect(database.getConversation).toHaveBeenCalledWith('conv1');
-            expect(database.getActiveConversationForUser).toHaveBeenCalledWith(userId);
-            expect(database.archiveAllConversationsForUserExceptOne).toHaveBeenCalledWith(userId, existingConv.id);
-            expect(database.createConversation).not.toHaveBeenCalled();
-            expect(conversation).toEqual(existingConv);
-        });
-
         test('should throw an error if userId is missing', async () => {
             await expect(conversationManager.getOrCreateConversation(null)).rejects.toThrow('userId is required to get or create a conversation.');
+            await expect(conversationManager.getOrCreateConversation()).rejects.toThrow('userId is required to get or create a conversation.');
+        });
+
+        test('should handle conversation with string params and history', async () => {
+            const convWithStrings = {
+                id: 'conv3',
+                userId,
+                params: '{"app_type":"web","user_traffic":"high"}',
+                history: '[{"role":"user","content":"hello"}]',
+                state: 'ongoing',
+                isActive: true
+            };
+            database.getActiveConversation.mockResolvedValue(convWithStrings);
+
+            const conversation = await conversationManager.getOrCreateConversation(userId);
+
+            expect(conversation.params).toEqual({ app_type: 'web', user_traffic: 'high' });
+            expect(conversation.history).toEqual([{ role: 'user', content: 'hello' }]);
         });
     });
 
+    describe('saveConversation', () => {
+        test('should stringify params and history before saving', async () => {
+            const conversation = {
+                id: 'conv5',
+                userId: 'user5',
+                params: { app_type: 'web' },
+                history: [{ role: 'user', content: 'hello' }],
+                state: 'ongoing',
+                isActive: true
+            };
 
-    test('saveConversation should stringify params and history before saving', async () => {
-        const conversation = {
-            id: 'conv5',
-            userId: 'user5',
-            params: { app_type: 'web' },
-            history: [{ role: 'user', content: 'hello' }],
-            state: 'ongoing',
-            intent: 'evaluate'
-        };
+            await conversationManager.saveConversation(conversation);
 
-        await conversationManager.saveConversation(conversation);
+            expect(database.saveConversation).toHaveBeenCalledWith(expect.objectContaining({
+                id: 'conv5',
+                userId: 'user5',
+                params: JSON.stringify({ app_type: 'web' }),
+                history: JSON.stringify([{ role: 'user', content: 'hello' }]),
+                state: 'ongoing',
+                isActive: true
+            }));
+        });
 
-        expect(database.saveConversation).toHaveBeenCalledWith(expect.objectContaining({
-            id: 'conv5',
-            params: JSON.stringify({ app_type: 'web' }),
-            history: JSON.stringify([{ role: 'user', content: 'hello' }]),
-        }));
+        test('should not modify the original conversation object', async () => {
+            const conversation = {
+                id: 'conv6',
+                params: { app_type: 'web' },
+                history: [{ role: 'user', content: 'hello' }]
+            };
+            const originalParams = conversation.params;
+            const originalHistory = conversation.history;
+
+            await conversationManager.saveConversation(conversation);
+
+            // Original object should remain unchanged
+            expect(conversation.params).toBe(originalParams);
+            expect(conversation.history).toBe(originalHistory);
+            expect(typeof conversation.params).toBe('object');
+            expect(typeof conversation.history).toBe('object');
+        });
+
+        test('should handle already stringified params and history', async () => {
+            const conversation = {
+                id: 'conv7',
+                params: '{"app_type":"web"}',
+                history: '[{"role":"user","content":"hello"}]'
+            };
+
+            await conversationManager.saveConversation(conversation);
+
+            expect(database.saveConversation).toHaveBeenCalledWith(expect.objectContaining({
+                params: '{"app_type":"web"}',
+                history: '[{"role":"user","content":"hello"}]'
+            }));
+        });
     });
 
-    test('updateConversationParams should merge new params', () => {
-        const conversation = { params: { app_type: 'web' } };
-        const newParams = { user_traffic: 'high' };
-        const updatedConv = conversationManager.updateConversationParams(conversation, newParams);
-        expect(updatedConv.params).toEqual({ app_type: 'web', user_traffic: 'high' });
+    describe('updateConversationParams', () => {
+        test('should merge new params into existing conversation params', () => {
+            const conversation = { params: { app_type: 'web' } };
+            const newParams = { user_traffic: 'high', scalability: 'horizontal' };
+            
+            conversationManager.updateConversationParams(conversation, newParams);
+            
+            expect(conversation.params).toEqual({ 
+                app_type: 'web', 
+                user_traffic: 'high',
+                scalability: 'horizontal'
+            });
+        });
+
+        test('should overwrite existing params with new values', () => {
+            const conversation = { params: { app_type: 'web', user_traffic: 'low' } };
+            const newParams = { user_traffic: 'high' };
+            
+            conversationManager.updateConversationParams(conversation, newParams);
+            
+            expect(conversation.params).toEqual({ 
+                app_type: 'web', 
+                user_traffic: 'high'
+            });
+        });
+
+        test('should ignore params with "unknown" value', () => {
+            const conversation = { params: { app_type: 'web' } };
+            const newParams = { user_traffic: 'unknown', scalability: 'horizontal' };
+            
+            conversationManager.updateConversationParams(conversation, newParams);
+            
+            expect(conversation.params).toEqual({ 
+                app_type: 'web',
+                scalability: 'horizontal'
+            });
+            expect(conversation.params.user_traffic).toBeUndefined();
+        });
+
+        test('should handle empty params object', () => {
+            const conversation = { params: {} };
+            const newParams = { app_type: 'web', user_traffic: 'high' };
+            
+            conversationManager.updateConversationParams(conversation, newParams);
+            
+            expect(conversation.params).toEqual({ 
+                app_type: 'web', 
+                user_traffic: 'high'
+            });
+        });
     });
 
-    describe('getNextAction', () => {
-        it("should return 'ask_params' when intent is 'evaluate' and params are missing", () => {
-            const conversation = { intent: 'evaluate', params: { app_type: 'web' } };
-            const action = conversationManager.getNextAction(conversation);
-            expect(action).toBe('ask_params');
-            expect(conversation.state).toBe('awaiting_params');
+    describe('archiveCurrentConversation', () => {
+        const userId = 'test-user';
+
+        test('should archive the active conversation and return true', async () => {
+            const activeConversation = { id: 'conv1', userId, isActive: true };
+            database.getActiveConversation.mockResolvedValue(activeConversation);
+            database.archiveConversation.mockResolvedValue();
+
+            const result = await conversationManager.archiveCurrentConversation(userId);
+
+            expect(database.getActiveConversation).toHaveBeenCalledWith(userId);
+            expect(database.archiveConversation).toHaveBeenCalledWith('conv1');
+            expect(result).toBe(true);
         });
 
-        it("should return 'recommend_architecture' when intent is 'evaluate' and all params are present", () => {
-            const params = conversationManager.ALL_PARAMS.reduce((acc, p) => ({ ...acc, [p]: 'value' }), {});
-            const conversation = { intent: 'evaluate', params };
-            const action = conversationManager.getNextAction(conversation);
-            expect(action).toBe('recommend_architecture');
-            expect(conversation.state).toBe('ready_to_evaluate');
+        test('should return false when no active conversation exists', async () => {
+            database.getActiveConversation.mockResolvedValue(null);
+
+            const result = await conversationManager.archiveCurrentConversation(userId);
+
+            expect(database.getActiveConversation).toHaveBeenCalledWith(userId);
+            expect(database.archiveConversation).not.toHaveBeenCalled();
+            expect(result).toBe(false);
         });
 
-        it("should return 'answer_knowledge' when intent is 'inform'", () => {
-            const conversation = { intent: 'inform', params: {} };
-            const action = conversationManager.getNextAction(conversation);
-            expect(action).toBe('answer_knowledge');
-        });
-
-        it("should return 'compare_architecture' when intent is 'compare'", () => {
-            const conversation = { intent: 'compare', params: {} };
-            const action = conversationManager.getNextAction(conversation);
-            expect(action).toBe('compare_architecture');
-        });
-
-        it("should return 'clarify_intent' for unknown intents", () => {
-            const conversation = { intent: 'unknown', params: {} };
-            const action = conversationManager.getNextAction(conversation);
-            expect(action).toBe('clarify_intent');
-            expect(conversation.state).toBe('clarifying');
+        test('should throw error when userId is not provided', async () => {
+            await expect(conversationManager.archiveCurrentConversation()).rejects.toThrow('userId is required to archive a conversation.');
+            await expect(conversationManager.archiveCurrentConversation(null)).rejects.toThrow('userId is required to archive a conversation.');
         });
     });
 });
